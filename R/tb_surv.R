@@ -314,8 +314,8 @@ tb_msm_imp_surv <- function(msm_surv, formula_surv, ..., seed = 10000) {
         distinct()
 
     ## impute
-    n_sub             <- nrow(d_subs)
-    rst                <- NULL
+    n_sub <- nrow(d_subs)
+    rst   <- NULL
     for (i in seq_len(n_sub)) {
         cur_rst <- tb_msms_imp_single(d_subs[i, ], fit_msm, ...)
         rst     <- rbind(rst, cur_rst)

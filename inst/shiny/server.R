@@ -105,6 +105,10 @@ shinyServer(function(input, output, session) {
         tb_plt_tb(dat_tb, id)
     })
 
+    output$txtHist <- renderPrint({
+        print(get_cur_hist())
+    })
+
     ##--------------------------------------
     ##---------Results----------------------
     ##--------------------------------------
@@ -115,5 +119,6 @@ shinyServer(function(input, output, session) {
 
         dat$results
     }, options = list(dom = 't'))
+
 
 })

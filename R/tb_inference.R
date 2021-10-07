@@ -3,13 +3,18 @@
 #'
 #'@export
 #'
-tb_estimate <- function(dat_sub, imp_m, ...) {
-    nsub <- nrow(dat_sub)
-    rst  <- NULL
+tb_estimate <- function(dat_sub, imp_surv, ...) {
+
+    imp_m <- max(imp_surv$Imp)
+    nsub  <- nrow(dat_sub)
+    rst   <- NULL
+
     for (i in seq_len(nsub)) {
         ## print(i)
         for (imp in seq_len(imp_m)) {
-            cur_uti <- tb_get_pt(dat_sub[i, "SUBJID"], imp_inx = imp, ...)
+            cur_uti <- tb_get_pt(id       = dat_sub[i, "SUBJID"],
+                                 imp_surv = imp_surv,
+                                 imp_inx  = imp, ...)
             cur_rst <- c(i,
                          imp,
                          cur_uti$utility,
@@ -55,8 +60,9 @@ tb_get_all <- function(dat_tb, dat_surv,
                        inx_bs       = 0,
                        formula_surv = "Surv(time,status)~trans+ARM+AGE+SEX+STRATA1+P1TERTL",
                        imp_m        = 5,
-                       date_dbl     = "2020-03-01",
-                       gamma        = c(0.2, 0.5)) {
+                       lst_par      = list(Calendar =
+                                               list(date_dbl = "2020-03-01",
+                                                    gamma    = c(0.2, 0.5)))) {
 
     params <- as.list(environment())
     ## bootstrap samples
@@ -86,16 +92,24 @@ tb_get_all <- function(dat_tb, dat_surv,
         distinct()
 
     ## estimate
-    rst_estimate <- tb_estimate(dat_sub,
-                                imp_m    = imp_m,
-                                imp_surv = imp_surv,
-                                dat_tb   = dat_tb,
-                                date_dbl = "2020-03-01",
-                                gamma    = gamma)
+    rst <- NULL
+    for (i in seq_len(length(lst_par))) {
+        cur_par   <- lst_par[[i]]
+        cur_label <- names(lst_par)[i]
 
-    rst <- tb_estimate_summary(rst_estimate) %>%
-        mutate(inx_bs = inx_bs) %>%
-        data.frame()
+        cur_rst   <- do.call(tb_estimate,
+                             c(list(dat_sub  = dat_sub,
+                                    imp_surv = imp_surv,
+                                    dat_tb   = dat_tb),
+                               cur_par))
+
+        cur_rst   <- tb_estimate_summary(cur_rst) %>%
+            mutate(inx_bs   = inx_bs,
+                   Scenario = cur_label) %>%
+            data.frame()
+
+        rst <- rbind(rst, cur_rst)
+    }
 
     ## return
     list(params   = params,
@@ -133,10 +147,11 @@ tb_get_all_bs <- function(rst_orig, nbs = 100, seed = 1234, n_cores = 5) {
         select(-inx_bs) %>%
         left_join(rst %>%
                   filter(0 != inx_bs) %>%
-                  group_by(Outcome) %>%
-                  summarize(bs_var = var(Value))) %>%
-        mutate(LB = Value - 1.96 * sqrt(bs_var),
-               UB = Value + 1.96 * sqrt(bs_var))
+                  group_by(Scenario, Outcome) %>%
+                  summarize(bs_sd = sd(Value))) %>%
+        mutate(LB     = Value - 1.96 * bs_sd,
+               UB     = Value + 1.96 * bs_sd,
+               pvalue = 2 * (1 - pnorm(abs(Value / bs_sd))))
 
     ## return
     list(rst_orig = rst_orig,

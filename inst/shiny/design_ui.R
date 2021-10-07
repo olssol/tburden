@@ -22,28 +22,37 @@ tab_present <- function() {
                              ),
                              wellPanel(
                                  h4("History and AUC"),
-                                 plotOutput("pltPt")),
+                                 plotOutput("pltPt", height = "500px")
+                             ),
                              wellPanel(
                                  fluidRow(
-                                     column(4,
+                                     column(5,
+                                            radioButtons("inAnaTime",
+                                                         "Time for the Final Analysis",
+                                                         choices = c("Calendar Time" = 1,
+                                                                     "Fixed Time"    = 2)),
                                             textInput("inDBL",
-                                                      label = "DBL Date",
+                                                      label = "Date of Analysis for (Calendar Time",
                                                       value = "2020-03-01"),
-                                            numericInput("inXlim",
-                                                         label = "x-axis Range",
-                                                         value = 0)
+                                            numericInput("inTana",
+                                                         label = "Time for Analysis in Months (Fixed Time)",
+                                                         value = 36)
                                             ),
-                                     column(4,
+                                     column(3,
                                             numericInput("inGammaPFS",
                                                          label = "Utility post PFS",
                                                          value = 0.2),
                                             numericInput("inGammaOS",
                                                          label = "Utility post OS",
-                                                         value = 0.5)
+                                                         value = 0.5),
+                                            numericInput("inXlim",
+                                                         label = "x-axis Range",
+                                                         value = 0)
                                             )
-                                 )
-                             )
-                      )))
+                                 )),
+                             wellPanel(h4("Utility Details"),
+                                       verbatimTextOutput("txtHist"))
+                             )))
 }
 
 tab_upload <- function() {
@@ -175,9 +184,17 @@ get_cur_hist <- reactive({
     gamma_pfs <- input$inGammaPFS
     gamma_os  <- input$inGammaOS
 
-    d_pt      <- tb_get_pt(id, dat$imp_surv, dat$dat_tb, date_dbl = time_dbl,
-                           imp_inx = imp_inx,
-                           gamma = c(gamma_pfs, gamma_os))
+    if (1 == input$inAnaTime) {
+        t_ana <- NULL
+    } else {
+        t_ana <- input$inTana * 365.25 / 12
+    }
+
+    d_pt      <- tb_get_pt(id, dat$imp_surv, dat$dat_tb,
+                           imp_inx  = imp_inx,
+                           t_ana    = t_ana,
+                           date_dbl = time_dbl,
+                           gamma    = c(gamma_pfs, gamma_os))
 
     d_pt
 })
@@ -190,7 +207,7 @@ get_cur_plt <- reactive({
     x_max <- input$inXlim
     if (!is.na(x_max)) {
         if (x_max > 0)
-            rst <- rst + xlim(0, x_max)
+            rst <- rst + coord_cartesian(xlim = c(0, x_max))
     }
 
     rst

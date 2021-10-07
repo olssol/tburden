@@ -48,27 +48,12 @@ tb_plt_ind <- function(pt_his, ylim = NULL, xlim = NULL) {
         lims(x = xlim, y = ylim) +
         labs(x = "Time", y = "Utility", title = g_tit)
 
-    for (j in 1:length(pt_his$gamma)) {
+    for (j in pt_his$gamma) {
         rst <- rst +
-            geom_hline(yintercept = pt_his$gamma[j], lty = 2, col = "red")
+            geom_hline(yintercept = j, lty = 2, col = "red")
     }
 
     rst
-}
-
-#' Spider plot of tumor burden
-#'
-#' @export
-#'
-tb_plt_tb <- function(dat_tb) {
-    if (is.null(dat_tb$selected))
-        dat_tb$selected <- FALSE
-
-    ggplot(data = dat_tb, aes(x = DAY, y = PCHG)) +
-        geom_line(aes(col = selected, group = SUBJID)) +
-        facet_wrap(~ARM) +
-        theme_bw() +
-        theme(legend.position = "none")
 }
 
 #' Spider plot of tumor burden

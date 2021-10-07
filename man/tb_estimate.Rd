@@ -4,7 +4,7 @@
 \alias{tb_estimate}
 \title{Get average utiltity}
 \usage{
-tb_estimate(dat_sub, imp_m, ...)
+tb_estimate(dat_sub, imp_surv, ...)
 }
 \description{
 Get average utiltity

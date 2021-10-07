@@ -5,11 +5,7 @@
 \title{Spider plot of tumor burden}
 \usage{
 tb_plt_tb(dat_tb, sel_ids = NULL)
-
-tb_plt_tb(dat_tb, sel_ids = NULL)
 }
 \description{
-Spider plot of tumor burden
-
 Spider plot of tumor burden
 }
