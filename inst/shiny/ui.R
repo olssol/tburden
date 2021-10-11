@@ -53,6 +53,10 @@ shinyUI(
                       )
               }),
 
+              ##wait for starting
+              conditionalPanel(condition = "$('html').hasClass('shiny-busy')",
+                               tags$div("", id = "loadmessage")),
+
               ##main page
               uiOutput("mainpage"),
 

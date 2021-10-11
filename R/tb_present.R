@@ -83,9 +83,18 @@ tb_plt_tb <- function(dat_tb, sel_ids = NULL) {
 
 }
 
-#' Swimmer plot of survival
+#' Survival curves
 #'
 #' @export
 #'
-tb_plt_surv <- function(dat_surv) {
+tb_plt_km <- function(dat_surv, prefix = "PFS") {
+    dat_surv$status <- dat_surv[[paste(prefix, "_", "CNSR", sep = "")]]
+    dat_surv$time   <- dat_surv[[paste(prefix, "_", "DAYS", sep = "")]]
+
+    dat_surv <- dat_surv %>%
+        mutate(status = if_else(0 == status, 0, 1))
+
+    fit <- survfit(Surv(time, status) ~ ARM, data = dat_surv)
+    ggsurvplot(fit, data = dat_surv) +
+        labs(y = prefix)
 }

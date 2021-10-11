@@ -58,7 +58,7 @@ tb_estimate_summary <- function(rst_estimate) {
 #'
 tb_get_all <- function(dat_tb, dat_surv,
                        inx_bs       = 0,
-                       formula_surv = "Surv(time,status)~trans+ARM+AGE+SEX+STRATA1+P1TERTL",
+                       formula_surv = "Surv(time,status)~trans+BASE+ARM+AGE+SEX+STRATA1+P1TERTL",
                        imp_m        = 5,
                        lst_par      = list(Calendar =
                                                list(date_dbl = "2020-03-01",

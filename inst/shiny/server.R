@@ -1,20 +1,4 @@
-##    ----------------------------------------------------------------------
-##    Copyright (C) 2015  Daniel O. Scharfstein and Chenguang Wang
-##    This program is free software: you can redistribute it and/or modify
-##    it under the terms of the GNU General Public License as published by
-##    the Free Software Foundation, either version 3 of the License, or
-##    (at your option) any later version.
-
-##    This program is distributed in the hope that it will be useful,
-##    but WITHOUT ANY WARRANTY; without even the implied warranty of
-##    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-##    GNU General Public License for more details.
-
-##    You should have received a copy of the GNU General Public License
-##    along with this program.  If not, see <http://www.gnu.org/licenses/>.
-##    -----------------------------------------------------------------------
-
-options(shiny.maxRequestSize = 200*1024^2)
+options(shiny.maxRequestSize = 200 * 1024 ^ 2)
 
 require(ggplot2)
 
@@ -30,7 +14,7 @@ shinyServer(function(input, output, session) {
     ##---------main-------------------------
     ##--------------------------------------
     output$mainpage <- renderUI({
-        tab_main()
+       tab_main()
     })
 
     ##--------------------------------------
@@ -49,7 +33,7 @@ shinyServer(function(input, output, session) {
             return(NULL)
 
         dta$dat_surv %>%
-            select(SUBJID, ARM, PFS_EVENT, PFS_DAYS, OS_EVENT, OS_DAYS)
+            select(SUBJID, ARM, RANDT, PFS_EVENT, PFS_DAYS, OS_EVENT, OS_DAYS)
     },
     selection = 'single',
     server    = TRUE,
@@ -75,7 +59,7 @@ shinyServer(function(input, output, session) {
 
         dat$dat_surv %>%
             filter(SUBJID == id) %>%
-            select(SUBJID, ARM, AGE, SEX, STRATA1, P1TERTL)
+            select(SUBJID, ARM, BASE, AGE, SEX, STRATA1, P1TERTL)
     }, options = list(dom = 't'))
 
     output$dt_impsurv <- DT::renderDataTable({
@@ -103,6 +87,24 @@ shinyServer(function(input, output, session) {
         id     <- get_cur_id()
 
         tb_plt_tb(dat_tb, id)
+    })
+
+    output$pltPFS <- renderPlot({
+        dta <- get_data()
+
+        if (is.null(dta))
+            return(NULL)
+
+        tb_plt_km(dta$dat_surv, "PFS")
+    })
+
+    output$pltOS <- renderPlot({
+        dta <- get_data()
+
+        if (is.null(dta))
+            return(NULL)
+
+        tb_plt_km(dta$dat_surv, "OS")
     })
 
     output$txtHist <- renderPrint({

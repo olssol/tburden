@@ -18,7 +18,8 @@
 #' @importFrom tidyr gather
 #' @importFrom data.table rbindlist
 #' @importFrom flexsurv flexsurvreg
-#' @importFrom survival Surv
+#' @importFrom survival Surv survfit
+#' @importFrom survminer ggsurvplot
 #'
 #' @description Tumor burden based treatment effect evaluation
 #'

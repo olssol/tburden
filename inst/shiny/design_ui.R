@@ -9,12 +9,10 @@ tab_present <- function() {
                                            style = "font-size:90%")),
                              wellPanel(h4("Tumor Burden by Time"),
                                        plotOutput("pltTb")),
-                             wellPanel(
-                                 h4("Baseline"),
-                                 DT::dataTableOutput("dt_cov"),
-                                 h4("Tumor Burden"),
-                                 DT::dataTableOutput("dt_tb")
-                             )),
+                             wellPanel(h4("Progression Free Survival"),
+                                       plotOutput("pltPFS")),
+                             wellPanel(h4("Overall Survival"),
+                                       plotOutput("pltOS"))),
                       column(5,
                              wellPanel(
                                  h4("Survival Outcome"),
@@ -50,6 +48,12 @@ tab_present <- function() {
                                                          value = 0)
                                             )
                                  )),
+                             wellPanel(
+                                 h4("Baseline"),
+                                 DT::dataTableOutput("dt_cov"),
+                                 h4("Tumor Burden"),
+                                 DT::dataTableOutput("dt_tb")
+                             ),
                              wellPanel(h4("Utility Details"),
                                        verbatimTextOutput("txtHist"))
                              )))
@@ -64,7 +68,18 @@ tab_upload <- function() {
                                             label   = 'Choose the analysis result R data file',
                                             accept  = '.Rdata')
                                   ))
-                       ))
+                       ),
+             wellPanel(h4("Create Pseudo Study"),
+                       numericInput("inFirstn",
+                                    label = "Keep the first N patients",
+                                    value = 999999,
+                                    width = "200px"),
+                       numericInput("inFudays",
+                                    label = "Follow up days since the last enrollment",
+                                    value = 999999,
+                                    width = "200px"),
+                       )
+             )
 }
 
 tab_results <- function() {
@@ -85,12 +100,50 @@ tab_main <- function() {
 }
 
 
+
 ##-------------------------------------------------------------
 ##           DATA FUNCTIONS
 ##-------------------------------------------------------------
+
+get_imp_data <- function(dat_surv, formula_surv) {
+    ## multistate survival data
+    msm_surv <- tb_msm_set_surv(dat_surv) %>%
+        mutate(time = max(time, 10))
+
+    ## imputation
+    imp_surv <- tb_msm_imp_surv(msm_surv, formula_surv, imp_m = 5)
+
+    imp_surv
+}
+
 get_data <- reactive({
     ## ss <- load("./www/imp_data.Rdata")
-    userLog$data
+    rst <- userLog$data
+    if (is.null(rst)) {
+        return(NULL)
+    }
+
+    first_n <- input$inFirstn
+    days_fu <- input$inFudays
+    if (!is.null(first_n) &
+        !is.null(days_fu)) {
+
+        ## only impute if smaller study created
+        if (first_n < 1000 |
+            days_fu < 10000) {
+            ana_data <- tb_get_data(rst$raw_dat_rs,
+                                    rst$raw_dat_te,
+                                    first_n,
+                                    days_fu)
+
+            rst$dat_tb   <- ana_data$dat_tb
+            rst$dat_surv <- ana_data$dat_surv
+            rst$imp_surv <- get_imp_data(rst$dat_surv,
+                                         rst$formula_surv)
+        }
+    }
+
+    rst
 })
 
 ## upload simulated results
@@ -99,12 +152,14 @@ observe({
 
     if (!is.null(in_file)) {
         ss  <- load(in_file$datapath)
-        print(ss)
         isolate({
-            userLog$data <- list(imp_surv = rst_all$rst_orig$imp_surv,
-                                 dat_tb   = rst_all$rst_orig$params$dat_tb,
-                                 dat_surv = rst_all$rst_orig$params$dat_surv,
-                                 results  = rst_all$summary)
+            userLog$data <- list(imp_surv      = rst_all$rst_orig$imp_surv,
+                                 dat_tb        = rst_all$rst_orig$params$dat_tb,
+                                 dat_surv      = rst_all$rst_orig$params$dat_surv,
+                                 formula_surv  = rst_all$rst_orig$params$formula_surv,
+                                 results       = rst_all$summary,
+                                 raw_dat_rs    = raw_dat_rs,
+                                 raw_dat_te    = raw_dat_te)
         })
     }
 })
