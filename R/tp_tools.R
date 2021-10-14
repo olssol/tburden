@@ -6,6 +6,8 @@
 tb_pt_hist <- function(time_tb, tb, time_event, t_ana,
                        gamma = c(0.2, 0.5), locf = FALSE) {
 
+    print(locf)
+
     ## remove NA pfs from event
     if (is.na(time_event[1])) {
         time_event <- time_event[-1]

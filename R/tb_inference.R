@@ -62,9 +62,12 @@ tb_get_all <- function(dat_tb, dat_surv,
                        imp_m        = 5,
                        lst_par      = list(Calendar =
                                                list(date_dbl = "2020-03-01",
-                                                    gamma    = c(0.2, 0.5)))) {
+                                                    gamma    = c(0.2, 0.5))),
+                       ...) {
 
-    params <- as.list(environment())
+    params <- c(as.list(environment()),
+                list(...))
+
     ## bootstrap samples
     if (0 != inx_bs) {
         d_subjid <- dat_tb %>%
@@ -101,7 +104,8 @@ tb_get_all <- function(dat_tb, dat_surv,
                              c(list(dat_sub  = dat_sub,
                                     imp_surv = imp_surv,
                                     dat_tb   = dat_tb),
-                               cur_par))
+                               cur_par,
+                               list(...)))
 
         cur_rst   <- tb_estimate_summary(cur_rst) %>%
             mutate(inx_bs   = inx_bs,
