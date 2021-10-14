@@ -102,7 +102,7 @@ tb_imp_surv <- function(dat_surv, seed = NULL, ext = 1.2) {
     nd  <- nrow(dat_surv)
     rst <- NULL
     for (i in seq_len(nd)) {
-        d       <- dat_surv[i, ,drop = TRUE]
+        d       <- dat_surv[i, , drop = TRUE]
         cur_rst <- NULL
         if (1 == d$Delta) {
             cur_rst <- c(d$T_PFS, d$T_Death)
@@ -210,7 +210,7 @@ tb_msms_imp_single <- function(d, fit_msm, imp_m) {
             pfs <- d$PFS_DAYS
         }
 
-        cbind(rep(d$PFS_DAYS, imp_m),
+        cbind(rep(pfs,        imp_m),
               rep(d$OS_DAYS,  imp_m))
     }
 

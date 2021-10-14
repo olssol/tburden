@@ -4,7 +4,17 @@
 \alias{tb_plt_ind}
 \title{Plot a patient}
 \usage{
-tb_plt_ind(pt_his, ylim = NULL, xlim = NULL)
+tb_plt_ind(
+  pt_his,
+  ylim = NULL,
+  xlim = NULL,
+  type = c("uti", "under"),
+  add_reflines_x = TRUE,
+  add_reflines_y = TRUE,
+  add_poly = TRUE,
+  add_title = TRUE,
+  add_line = TRUE
+)
 }
 \description{
 Plot a patient

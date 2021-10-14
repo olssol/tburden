@@ -15,39 +15,16 @@ tab_present <- function() {
                                        plotOutput("pltOS"))),
                       column(5,
                              wellPanel(
+                                 h4("History and AUC"),
+                                 plotOutput("pltPt", height = "500px"),
+                                 sliderInput("inXlim",
+                                              label = "",
+                                              value = 0, min = 0, max = 5000, step = 100)
+                             ),
+                             wellPanel(
                                  h4("Survival Outcome"),
                                  DT::dataTableOutput("dt_impsurv")
                              ),
-                             wellPanel(
-                                 h4("History and AUC"),
-                                 plotOutput("pltPt", height = "500px")
-                             ),
-                             wellPanel(
-                                 fluidRow(
-                                     column(5,
-                                            radioButtons("inAnaTime",
-                                                         "Time for the Final Analysis",
-                                                         choices = c("Calendar Time" = 1,
-                                                                     "Fixed Time"    = 2)),
-                                            textInput("inDBL",
-                                                      label = "Date of Analysis for (Calendar Time",
-                                                      value = "2020-03-01"),
-                                            numericInput("inTana",
-                                                         label = "Time for Analysis in Months (Fixed Time)",
-                                                         value = 36)
-                                            ),
-                                     column(3,
-                                            numericInput("inGammaPFS",
-                                                         label = "Utility post PFS",
-                                                         value = 0.2),
-                                            numericInput("inGammaOS",
-                                                         label = "Utility post OS",
-                                                         value = 0.5),
-                                            numericInput("inXlim",
-                                                         label = "x-axis Range",
-                                                         value = 0)
-                                            )
-                                 )),
                              wellPanel(
                                  h4("Baseline"),
                                  DT::dataTableOutput("dt_cov"),
@@ -73,12 +50,35 @@ tab_upload <- function() {
                        numericInput("inFirstn",
                                     label = "Keep the first N patients",
                                     value = 999999,
-                                    width = "200px"),
+                                    width = "400px"),
                        numericInput("inFudays",
                                     label = "Follow up days since the last enrollment",
                                     value = 999999,
-                                    width = "200px"),
-                       )
+                                    width = "400px"),
+                       ),
+             wellPanel(h4("Options for Utility Plot"),
+                 fluidRow(
+                     column(5,
+                            radioButtons("inAnaTime",
+                                         "Time for the Final Analysis",
+                                         choices = c("Calendar Time" = 1,
+                                                     "Fixed Time"    = 2)),
+                            textInput("inDBL",
+                                      label = "Date of Analysis for (Calendar Time",
+                                      value = "2020-03-01"),
+                            numericInput("inTana",
+                                         label = "Time for Analysis in Months (Fixed Time)",
+                                         value = 36)
+                            ),
+                     column(3,
+                            numericInput("inGammaPFS",
+                                         label = "Utility post PFS",
+                                         value = 0.2),
+                            numericInput("inGammaOS",
+                                         label = "Utility post OS",
+                                         value = 0.5)
+                            )
+                 ))
              )
 }
 
@@ -258,7 +258,7 @@ get_cur_plt <- reactive({
     cur_his <- get_cur_hist()
     if (is.null(cur_his))
         return(NULL)
-    rst   <- tb_plt_ind(cur_his)
+    rst   <- tb_plt_ind(cur_his, type = "uti")
     x_max <- input$inXlim
     if (!is.na(x_max)) {
         if (x_max > 0)

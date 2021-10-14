@@ -4,7 +4,7 @@
 \alias{tb_pt_hist}
 \title{Generate history of a patient}
 \usage{
-tb_pt_hist(time_tb, tb, time_event, t_ana, gamma = c(0.2, 1))
+tb_pt_hist(time_tb, tb, time_event, t_ana, gamma = c(0.2, 0.5), locf = FALSE)
 }
 \description{
 Generate history of a patient

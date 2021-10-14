@@ -3,7 +3,8 @@
 #'
 #' @export
 #'
-tb_pt_hist <- function(time_tb, tb, time_event, t_ana, gamma = c(0.2, 1)) {
+tb_pt_hist <- function(time_tb, tb, time_event, t_ana,
+                       gamma = c(0.2, 0.5), locf = FALSE) {
 
     ## remove NA pfs from event
     if (is.na(time_event[1])) {
@@ -29,8 +30,16 @@ tb_pt_hist <- function(time_tb, tb, time_event, t_ana, gamma = c(0.2, 1)) {
     rst_ind <- c(rep(0, length(tb)), ind_event)
     ntot    <- length(rst_x)
 
+    ## locf setting
+    if (locf) {
+        last_t  <- time_tb[length(time_tb)]
+        last_tb <- tb[length(tb)]
+
+        rst_y[which(rst_x > last_t)] <- last_tb
+    }
+
     ## adjust duration
-    npost   <- sum(rst_x >= t_ana)
+    npost <- sum(rst_x >= t_ana)
 
     if (0 == npost) {
         pri_ana <- cbind(x = c(rst_x, t_ana),
