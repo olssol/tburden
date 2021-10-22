@@ -86,7 +86,7 @@ shinyServer(function(input, output, session) {
         dat_tb <- dta$dat_tb
         id     <- get_cur_id()
 
-        tb_plt_tb(dat_tb, id)
+        tb_plt_tb(dat_tb, id, by_var = input$inByvar)
     })
 
     output$pltPFS <- renderPlot({
@@ -95,7 +95,7 @@ shinyServer(function(input, output, session) {
         if (is.null(dta))
             return(NULL)
 
-        tb_plt_km(dta$dat_surv, "PFS")
+        tb_plt_km(dta$dat_surv, "PFS", by_var = input$inByvar)
     })
 
     output$pltOS <- renderPlot({
@@ -104,12 +104,28 @@ shinyServer(function(input, output, session) {
         if (is.null(dta))
             return(NULL)
 
-        tb_plt_km(dta$dat_surv, "OS")
+        tb_plt_km(dta$dat_surv, "OS", by_var = input$inByvar)
     })
 
     output$txtHist <- renderPrint({
         print(get_cur_hist())
     })
+
+    output$txtMsm <- renderPrint({
+        dta <- get_data()
+
+        if (is.null(dta))
+            return(NULL)
+
+        print(dta$fit_msm)
+    })
+
+    ##--------------------------------------
+    ##---------SURVIVAL---------------------
+    ##--------------------------------------
+    output$dt_impsurv_summary <- DT::renderDataTable({
+        get_impsurv_summary()
+    }, options = list(dom = 't'))
 
     ##--------------------------------------
     ##---------Results----------------------

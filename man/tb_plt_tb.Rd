@@ -4,7 +4,7 @@
 \alias{tb_plt_tb}
 \title{Spider plot of tumor burden}
 \usage{
-tb_plt_tb(dat_tb, sel_ids = NULL)
+tb_plt_tb(dat_tb, sel_ids = NULL, by_var = c("ARM"))
 }
 \description{
 Spider plot of tumor burden

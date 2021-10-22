@@ -10,7 +10,6 @@ tb_estimate <- function(dat_sub, imp_surv, ...) {
     rst   <- NULL
 
     for (i in seq_len(nsub)) {
-        ## print(i)
         for (imp in seq_len(imp_m)) {
             cur_uti <- tb_get_pt(id       = dat_sub[i, "SUBJID"],
                                  imp_surv = imp_surv,
@@ -25,7 +24,6 @@ tb_estimate <- function(dat_sub, imp_surv, ...) {
     }
 
     colnames(rst) <- c("inx", "imp", "utility", "auc", "adj_auc")
-
     dat_sub %>%
         mutate(inx = 1:n()) %>%
         left_join(data.frame(rst))
@@ -36,14 +34,14 @@ tb_estimate <- function(dat_sub, imp_surv, ...) {
 #'
 #'@export
 #'
-tb_estimate_summary <- function(rst_estimate) {
+tb_estimate_summary <- function(rst_estimate, arm_control = "Chemotherapy") {
     rst_estimate %>%
         group_by(ARM, imp) %>%
         summarize(utility = mean(utility),
                   auc     = mean(auc),
                   adj_auc = mean(adj_auc)) %>%
         gather(Outcome, Value, utility, auc, adj_auc) %>%
-        mutate(Value = if_else(ARM == "Chemotherapy", -Value, Value)) %>%
+        mutate(Value = if_else(ARM == arm_control, -Value, Value)) %>%
         ungroup() %>%
         group_by(Outcome, imp) %>%
         summarize(Value = sum(Value)) %>%
@@ -57,12 +55,12 @@ tb_estimate_summary <- function(rst_estimate) {
 #' @export
 #'
 tb_get_all <- function(dat_tb, dat_surv,
-                       inx_bs       = 0,
-                       formula_surv = "Surv(time,status)~trans+BASE+ARM+AGE+SEX+STRATA1+P1TERTL",
-                       imp_m        = 5,
-                       lst_par      = list(Calendar =
-                                               list(date_dbl = "2020-03-01",
-                                                    gamma    = c(0.2, 0.5))),
+                       inx_bs   = 0,
+                       fml_surv = "~BASE+AGE+SEX+STRATA1+P1TERTL",
+                       imp_m    = 5,
+                       lst_par  = list(Calendar =
+                                           list(date_dbl = "2020-03-01",
+                                                gamma    = c(0.2, 0.5))),
                        ...) {
 
     params <- c(as.list(environment()),
@@ -84,17 +82,20 @@ tb_get_all <- function(dat_tb, dat_surv,
     }
 
     ## multistate survival data
-    msm_surv <- tb_msm_set_surv(dat_surv) %>%
+    msm_surv <- tb_msm_set(dat_surv) %>%
         mutate(time = max(time, 10))
 
-    ## imputation
-    imp_surv <- tb_msm_imp_surv(msm_surv, formula_surv, imp_m = imp_m)
+    ## fit imputation model
+    msm_fit <- tb_msm_fit(msm_surv, fml_surv)
 
+    ## imputation
+    imp_surv <- tb_msm_imp(msm_fit, imp_m = imp_m)
+
+    ## estimate
     dat_sub <- dat_tb %>%
         select(SUBJID, ARM) %>%
         distinct()
 
-    ## estimate
     rst <- NULL
     for (i in seq_len(length(lst_par))) {
         cur_par   <- lst_par[[i]]
@@ -118,6 +119,7 @@ tb_get_all <- function(dat_tb, dat_surv,
     ## return
     list(params   = params,
          msm_surv = msm_surv,
+         msm_fit  = msm_fit,
          imp_surv = imp_surv,
          estimate = rst)
 }

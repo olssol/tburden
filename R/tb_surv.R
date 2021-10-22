@@ -8,7 +8,7 @@ tb_set_surv <- function(dat_surv) {
     nd  <- nrow(dat_surv)
     rst <- NULL
     for (i in seq_len(nd)) {
-        d       <- dat_surv[i, ,drop = TRUE]
+        d       <- dat_surv[i, , drop = TRUE]
         cur_rst <- NULL
         if (0 == d$OS_CNSR &
             0 == d$PFS_CNSR) {
@@ -17,9 +17,9 @@ tb_set_surv <- function(dat_surv) {
             t_death  <- d$OS_DAYS
 
             if ("DEATH" == d$PFS_EVENT) {
-                t_pfs    <- NA
+                t_pfs <- NA
             } else {
-                t_pfs    <- d$PFS_DAYS
+                t_pfs <- d$PFS_DAYS
             }
         } else if (0 != d$OS_CNSR &
                    0 != d$PFS_CNSR) {
@@ -129,7 +129,7 @@ tb_imp_surv <- function(dat_surv, seed = NULL, ext = 1.2) {
 #'
 #' @export
 #'
-tb_msm_set_surv <- function(dat_surv) {
+tb_msm_set <- function(dat_surv) {
 
     ## no progression, death
     f_1 <- function(d) {
@@ -165,7 +165,6 @@ tb_msm_set_surv <- function(dat_surv) {
         cur_rst <- NULL
         if (0 == d$OS_CNSR &
             0 == d$PFS_CNSR) {
-
             if (d$PFS_DAYS == d$OS_DAYS) {
                 cur_rst <- f_1(d)
             } else {
@@ -185,6 +184,7 @@ tb_msm_set_surv <- function(dat_surv) {
         rst <- rbind(rst, cbind(i, cur_rst))
     }
 
+    ## observed status = 1 or censored status = 0
     colnames(rst) <- c("inx", "trans", "from", "to",
                        "t_start", "t_stop", "status")
 
@@ -192,15 +192,45 @@ tb_msm_set_surv <- function(dat_surv) {
         mutate(inx = 1:n()) %>%
         left_join(data.frame(rst)) %>%
         select(-inx) %>%
-        mutate(trans = factor(trans),
-               time  = t_stop - t_start)
+        mutate(time = t_stop - t_start)
+}
+
+#' Fit Survival MSM
+#'
+#'
+#' @export
+#'
+tb_msm_fit <- function(msm_surv, fml_surv, v_censor = 0) {
+
+    fml  <- as.formula(paste("Surv(time, status)",
+                             fml_surv))
+    arms  <- unique(msm_surv$ARM)
+    trans <- unique(msm_surv$trans)
+
+    rst <- list()
+    for (a in arms) {
+        lst_a <- list()
+        for (i in trans) {
+            cur_d <- msm_surv %>%
+                filter(ARM   == a &
+                       trans == i) %>%
+                mutate(status = if_else(status == v_censor, 0, 1))
+
+            lst_a[[i]] <- flexsurvreg(fml, data = cur_d, dist = "exp")
+        }
+        rst[[a]] <- lst_a
+    }
+
+    list(msm_surv = msm_surv,
+         mdl_fit  = rst,
+         fml_surv = fml)
 }
 
 #' Impute survival for single patient
 #'
 #' @export
 #'
-tb_msms_imp_single <- function(d, fit_msm, imp_m) {
+tb_msm_imp_single <- function(d, mdl_fit, imp_m) {
 
     ## progression, death
     f_1 <- function() {
@@ -216,17 +246,9 @@ tb_msms_imp_single <- function(d, fit_msm, imp_m) {
 
     ## no progression, no death
     f_2 <- function() {
-        d_trans   <- data.frame(trans = factor(1:3))
-        pred_mean <- predict(fit_msm,
-                             newdata = cbind(d[rep(1, 3), ],
-                                             d_trans),
-                             type    = "response")
-
-        pred_mean <- data.frame(pred_mean)
-
-        imp_pfs    <- d$PFS_DAYS + rexp(imp_m, 1 / pred_mean[1, 1])
-        imp_os     <- d$OS_DAYS  + rexp(imp_m, 1 / pred_mean[2, 1])
-        imp_pfs_os <- imp_pfs    + rexp(imp_m, 1 / pred_mean[3, 1])
+        imp_pfs    <- d$PFS_DAYS + rexp(imp_m, pred_mean[1])
+        imp_os     <- d$OS_DAYS  + rexp(imp_m, pred_mean[2])
+        imp_pfs_os <- imp_pfs    + rexp(imp_m, pred_mean[3])
 
         ## censoring
         imp_pfs[which(imp_pfs >= imp_os)] <- NA
@@ -237,10 +259,7 @@ tb_msms_imp_single <- function(d, fit_msm, imp_m) {
 
     ## progression, no death
     f_3 <- function() {
-        d$trans   <- factor(3, levels = 1:3)
-        pred_mean <- predict(fit_msm, newdata = d, type = "response")
-        pred_mean <- data.frame(pred_mean)
-        imp_os    <- d$OS_DAYS + rexp(imp_m, 1 / pred_mean[1, 1])
+        imp_os  <- d$OS_DAYS + rexp(imp_m, pred_mean[3])
 
         cbind(rep(d$PFS_DAYS, imp_m),
               imp_os)
@@ -248,10 +267,7 @@ tb_msms_imp_single <- function(d, fit_msm, imp_m) {
 
     ## no progression, death
     f_4 <- function() {
-        d$trans   <- factor(1, levels = 1:3)
-        pred_mean <- predict(fit_msm, newdata = d, type = "response")
-        pred_mean <- data.frame(pred_mean)
-        imp_pfs   <- d$PFS_DAYS + rexp(imp_m, 1 / pred_mean[1, 1])
+        imp_pfs <- d$PFS_DAYS + rexp(imp_m, pred_mean[1])
 
         ## censored by death
         imp_pfs[which(imp_pfs >= d$OS_DAYS)] <- NA
@@ -259,6 +275,17 @@ tb_msms_imp_single <- function(d, fit_msm, imp_m) {
         cbind(imp_pfs,
               rep(d$OS_DAYS, imp_m))
     }
+
+    ## mdl_fit result
+    fit_msm   <- mdl_fit[[d$ARM]]
+    pred_mean <- NULL
+    for (trans in 1:3) {
+        cur_mean  <- predict(fit_msm[[trans]],
+                             newdata = d,
+                             type    = "response")
+        pred_mean <- c(pred_mean, 1 / as.numeric(cur_mean))
+    }
+
 
     if (0 == d$OS_CNSR &
         0 == d$PFS_CNSR) {
@@ -274,7 +301,7 @@ tb_msms_imp_single <- function(d, fit_msm, imp_m) {
         cur_rst <- f_4()
     }
 
-    cur_rst <- cbind(seq_len(imp_m), cur_rst)
+    cur_rst           <- cbind(seq_len(imp_m), cur_rst)
     colnames(cur_rst) <- c("Imp", "IT_PFS", "IT_OS")
     rownames(cur_rst) <- NULL
 
@@ -286,28 +313,24 @@ tb_msms_imp_single <- function(d, fit_msm, imp_m) {
     rst
 }
 
+
 #' Get survival data for multi-state model
 #'
 #'
 #' @export
 #'
-tb_msm_imp_surv <- function(msm_surv, formula_surv, ..., seed = 10000) {
-
+tb_msm_imp <- function(fit_rst, ..., seed = 10000) {
     if (!is.null(seed)) {
         old_seed <- set.seed(seed)
     }
 
-    ## exponential model
-    fml     <- as.formula(formula_surv)
-    fit_msm <- flexsurvreg(fml,
-                           data = msm_surv,
-                           dist = "exp")
+    msm_surv <- fit_rst$msm_surv
 
     ## subjects
-    vec_covs <- c("SUBJID", "RANDT",
+    vec_covs <- c("SUBJID", "ARM", "RANDT",
                   "PFS_DAYS", "OS_DAYS",
                   "PFS_CNSR", "OS_CNSR",
-                  all.vars(fml)[-(1:3)])
+                  all.vars(fit_rst$fml_surv)[-(1:2)])
 
     d_subs <- msm_surv %>%
         select(any_of(vec_covs)) %>%
@@ -317,7 +340,7 @@ tb_msm_imp_surv <- function(msm_surv, formula_surv, ..., seed = 10000) {
     n_sub <- nrow(d_subs)
     rst   <- NULL
     for (i in seq_len(n_sub)) {
-        cur_rst <- tb_msms_imp_single(d_subs[i, ], fit_msm, ...)
+        cur_rst <- tb_msm_imp_single(d_subs[i, ], fit_rst$mdl_fit, ...)
         rst     <- rbind(rst, cur_rst)
     }
 

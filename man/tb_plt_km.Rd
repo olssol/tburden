@@ -4,7 +4,7 @@
 \alias{tb_plt_km}
 \title{Survival curves}
 \usage{
-tb_plt_km(dat_surv, prefix = "PFS")
+tb_plt_km(dat_surv, prefix = "PFS", by_var = c("ARM"))
 }
 \description{
 Survival curves

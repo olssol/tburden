@@ -38,7 +38,9 @@ tb_get_data <- function(raw_dat_rs, raw_dat_te,
 
     ## tumor burden
     dat_tb <- dat_rs %>%
-        select(ARM, SUBJID, RANDT, VISIT, AVISITN, PCHG) %>%
+        select(ARM, SUBJID, RANDT, VISIT, AVISITN, PCHG,
+               BASE, AGE, SEX,
+               ECOGGR1, STRATA1, P1TERTL) %>%
         arrange(ARM, SUBJID, AVISITN, PCHG) %>%
         mutate(PCHG = if_else(1 == AVISITN, 0, PCHG / 100),
                DAY  = if_else(1 == AVISITN, 0, AVISITN)) %>%

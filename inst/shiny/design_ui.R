@@ -2,25 +2,11 @@
 ##           UI FUNCTIONS
 ##-------------------------------------------------------------
 tab_present <- function() {
-    tabPanel("Data Visualization",
+    tabPanel("AUC",
              fluidRow(column(7,
                              wellPanel(h4("Survival Data"),
                                        div(DT::dataTableOutput("dt_surv"),
                                            style = "font-size:90%")),
-                             wellPanel(h4("Tumor Burden by Time"),
-                                       plotOutput("pltTb")),
-                             wellPanel(h4("Progression Free Survival"),
-                                       plotOutput("pltPFS")),
-                             wellPanel(h4("Overall Survival"),
-                                       plotOutput("pltOS"))),
-                      column(5,
-                             wellPanel(
-                                 h4("History and AUC"),
-                                 plotOutput("pltPt", height = "500px"),
-                                 sliderInput("inXlim",
-                                              label = "",
-                                              value = 0, min = 0, max = 5000, step = 100)
-                             ),
                              wellPanel(
                                  h4("Survival Outcome"),
                                  DT::dataTableOutput("dt_impsurv")
@@ -30,7 +16,41 @@ tab_present <- function() {
                                  DT::dataTableOutput("dt_cov"),
                                  h4("Tumor Burden"),
                                  DT::dataTableOutput("dt_tb")
+                             )),
+                      column(5,
+                             wellPanel(
+                                 h4("History and AUC"),
+                                 plotOutput("pltPt", height = "500px"),
+                                 sliderInput("inXlim",
+                                             label = "",
+                                             value = 0, min = 0, max = 5000, step = 100)
                              ),
+                             wellPanel(h4("Options for Utility Plot"),
+                                       fluidRow(
+                                           column(5,
+                                                  radioButtons("inAnaTime",
+                                                               "Time for the Final Analysis",
+                                                               choices = c("Calendar Time" = 1,
+                                                                           "Fixed Time"    = 2)),
+                                                  textInput("inDBL",
+                                                            label = "Date of Analysis for (Calendar Time",
+                                                            value = "2020-03-01"),
+                                                  numericInput("inTana",
+                                                               label = "Time for Analysis in Months (Fixed Time)",
+                                                               value = 36)
+                                                  ),
+                                           column(3,
+                                                  numericInput("inGammaPFS",
+                                                               label = "Utility post PFS",
+                                                               value = 0.2),
+                                                  numericInput("inGammaOS",
+                                                               label = "Utility post OS",
+                                                               value = 0.5),
+                                                  checkboxInput("inLocf",
+                                                                label = "LOCF",
+                                                                value = FALSE)
+                                                  )
+                                       )),
                              wellPanel(h4("Utility Details"),
                                        verbatimTextOutput("txtHist"))
                              )))
@@ -55,30 +75,7 @@ tab_upload <- function() {
                                     label = "Follow up days since the last enrollment",
                                     value = 999999,
                                     width = "400px"),
-                       ),
-             wellPanel(h4("Options for Utility Plot"),
-                 fluidRow(
-                     column(5,
-                            radioButtons("inAnaTime",
-                                         "Time for the Final Analysis",
-                                         choices = c("Calendar Time" = 1,
-                                                     "Fixed Time"    = 2)),
-                            textInput("inDBL",
-                                      label = "Date of Analysis for (Calendar Time",
-                                      value = "2020-03-01"),
-                            numericInput("inTana",
-                                         label = "Time for Analysis in Months (Fixed Time)",
-                                         value = 36)
-                            ),
-                     column(3,
-                            numericInput("inGammaPFS",
-                                         label = "Utility post PFS",
-                                         value = 0.2),
-                            numericInput("inGammaOS",
-                                         label = "Utility post OS",
-                                         value = 0.5)
-                            )
-                 ))
+                       )
              )
 }
 
@@ -86,7 +83,37 @@ tab_results <- function() {
     tabPanel("Results",
              wellPanel(h4("Estimate and Confidence Interval"),
                        DT::dataTableOutput("dt_rst")
-                       ))
+                       )
+             )
+}
+
+tab_survival <- function() {
+    tabPanel("TB and Survival",
+             wellPanel(h4("Options for Tumor Burden and Survival Plot"),
+                       selectInput(inputId = "inByvar",
+                                   label   = "Group by",
+                                   choices = c("ARM", "SEX",
+                                               "STRATA1", "P1TERTL"),
+                                   multiple = TRUE,
+                                   selected = "ARM",
+                                   width    = "400px")
+                       ),
+             wellPanel(h4("Tumor Burden by Time"),
+                       plotOutput("pltTb")),
+             wellPanel(fluidRow(
+                           column(6,
+                                  h4("Progression Free Survival"),
+                                  plotOutput("pltPFS")),
+                           column(6,
+                                  h4("Overall Survival"),
+                                  plotOutput("pltOS"))
+                       )),
+             wellPanel(h4("Imputed Survival"),
+                       DT::dataTableOutput("dt_impsurv_summary")
+                       ),
+             wellPanel(h4("MSM Model Fitting Results"),
+                       verbatimTextOutput("txtMsm"))
+             )
 }
 
 ##define the main tabset for beans
@@ -95,6 +122,7 @@ tab_main <- function() {
                 id   = "mainpanel",
                 tab_upload(),
                 tab_present(),
+                tab_survival(),
                 tab_results()
                 )
 }
@@ -105,13 +133,16 @@ tab_main <- function() {
 ##           DATA FUNCTIONS
 ##-------------------------------------------------------------
 
-get_imp_data <- function(dat_surv, formula_surv) {
+get_imp_data <- function(dat_surv, fml_surv) {
     ## multistate survival data
     msm_surv <- tb_msm_set_surv(dat_surv) %>%
         mutate(time = max(time, 10))
 
+    ## fit imputation model
+    msm_fit <- tb_msm_fit(msm_surv, fml_surv)
+
     ## imputation
-    imp_surv <- tb_msm_imp_surv(msm_surv, formula_surv, imp_m = 5)
+    imp_surv <- tb_msm_imp(msm_fit, imp_m = imp_m)
 
     imp_surv
 }
@@ -154,9 +185,10 @@ observe({
         ss  <- load(in_file$datapath)
         isolate({
             userLog$data <- list(imp_surv      = rst_all$rst_orig$imp_surv,
+                                 fit_msm       = rst_all$rst_orig$msm_fit$mdl_fit,
                                  dat_tb        = rst_all$rst_orig$params$dat_tb,
                                  dat_surv      = rst_all$rst_orig$params$dat_surv,
-                                 formula_surv  = rst_all$rst_orig$params$formula_surv,
+                                 formula_surv  = rst_all$rst_orig$params$fml_surv,
                                  results       = rst_all$summary,
                                  raw_dat_rs    = raw_dat_rs,
                                  raw_dat_te    = raw_dat_te)
@@ -249,11 +281,13 @@ get_cur_hist <- reactive({
                            imp_inx  = imp_inx,
                            t_ana    = t_ana,
                            date_dbl = time_dbl,
-                           gamma    = c(gamma_pfs, gamma_os))
+                           gamma    = c(gamma_pfs, gamma_os),
+                           locf     = input$inLocf)
 
     d_pt
 })
 
+## history of a patient
 get_cur_plt <- reactive({
     cur_his <- get_cur_hist()
     if (is.null(cur_his))
@@ -266,4 +300,24 @@ get_cur_plt <- reactive({
     }
 
     rst
+})
+
+get_impsurv_summary <- reactive({
+    dat <- get_data()
+    if (is.null(dat))
+        return(NULL)
+
+    by_var <- input$inByvar
+    if (is.null(by_var))
+        return(NULL)
+
+    dat$imp_surv %>%
+        left_join(dat$dat_tb) %>%
+        group_by_(.dots = by_var) %>%
+        summarize(Progression_Rate  = mean(is.na(IT_PFS)),
+                  Progession_Mean   = mean(IT_PFS,   na.rm = T),
+                  Progession_Median = median(IT_PFS, na.rm = T),
+                  OS_Mean           = mean(IT_OS,   na.rm = T),
+                  OS_Median         = median(IT_OS, na.rm = T)
+                  )
 })

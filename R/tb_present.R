@@ -150,11 +150,13 @@ tb_plt_ind <- function(pt_his, ylim = NULL, xlim = NULL,
 #'
 #' @export
 #'
-tb_plt_tb <- function(dat_tb, sel_ids = NULL) {
+tb_plt_tb <- function(dat_tb, sel_ids = NULL, by_var = c("ARM")) {
+
+    s_fml <- paste("~", paste(by_var, collapse = "+"))
 
     rst <- ggplot(data = dat_tb, aes(x = DAY, y = PCHG)) +
         geom_line(aes(group = SUBJID), col = "brown") +
-        facet_wrap(~ARM) +
+        facet_wrap(as.formula(s_fml)) +
         theme_bw() +
         theme(legend.position = "none")
 
@@ -177,14 +179,20 @@ tb_plt_tb <- function(dat_tb, sel_ids = NULL) {
 #'
 #' @export
 #'
-tb_plt_km <- function(dat_surv, prefix = "PFS") {
+tb_plt_km <- function(dat_surv, prefix = "PFS", by_var = c("ARM")) {
     dat_surv$status <- dat_surv[[paste(prefix, "_", "CNSR", sep = "")]]
     dat_surv$time   <- dat_surv[[paste(prefix, "_", "DAYS", sep = "")]]
 
     dat_surv <- dat_surv %>%
-        mutate(status = if_else(0 == status, 0, 1))
+        mutate(status = if_else(0 == status, 1, 0))
 
-    fit <- survfit(Surv(time, status) ~ ARM, data = dat_surv)
+    s_fml <- paste("Surv(time, status) ~",
+                   paste(by_var, collapse = "+"))
+
+    s_fml <- as.formula(s_fml)
+    fit   <- survfit(as.formula(s_fml), data = dat_surv)
+    fit$call$formula <- s_fml
+
     ggsurvplot(fit, data = dat_surv) +
         labs(y = prefix)
 }
