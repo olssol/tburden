@@ -4,7 +4,6 @@
 #'@export
 #'
 tb_estimate <- function(dat_sub, imp_surv, ...) {
-
     imp_m <- max(imp_surv$Imp)
     nsub  <- nrow(dat_sub)
     rst   <- NULL
@@ -83,7 +82,7 @@ tb_get_all <- function(dat_tb, dat_surv,
 
     ## multistate survival data
     msm_surv <- tb_msm_set(dat_surv) %>%
-        mutate(time = max(time, 10))
+        mutate(time = if_else(0 == time, 10, time))
 
     ## fit imputation model
     msm_fit <- tb_msm_fit(msm_surv, fml_surv)

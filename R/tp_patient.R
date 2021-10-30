@@ -109,7 +109,7 @@ tb_get_pt <- function(id, imp_surv, dat_tb, date_dbl,
     tb         <- d_tb$PCHG
 
     if (is.null(t_ana)) {
-        t_ana <- as.Date(date_dbl) - as.Date(d_surv$RANDT)
+        t_ana <- as.Date(date_dbl) - as.Date(d_tb$RANDDT[1])
         t_ana <- as.numeric(t_ana)
     }
 
