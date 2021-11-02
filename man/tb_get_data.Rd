@@ -4,7 +4,7 @@
 \alias{tb_get_data}
 \title{Get Analysis Data}
 \usage{
-tb_get_data(raw_dat_rs, raw_dat_te, first_n = 99999, days_fu = 99999)
+tb_get_data(raw_dat_rs, raw_dat_te, first_n = 99999, days_fu = 99999, ...)
 }
 \description{
 Get Analysis Data

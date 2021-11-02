@@ -4,7 +4,8 @@
 #' @export
 #'
 tb_get_data <- function(raw_dat_rs, raw_dat_te,
-                        first_n = 99999, days_fu = 99999) {
+                        first_n = 99999, days_fu = 99999,
+                        ...) {
 
     ## censor events
     f_censor <- function(dat, cut_date = cut_date_fu) {
@@ -81,6 +82,41 @@ tb_get_data <- function(raw_dat_rs, raw_dat_te,
                PFS_DAYS,  OS_DAYS,
                PFS_CNSR,  OS_CNSR,
                PFS_EVENT, OS_EVENT)
+
+    rst <- tb_permute_data(dat_tb, dat_surv, ...)
+    rst
+}
+
+
+#' Permute data
+#'
+#'
+#'
+#' @export
+#'
+tb_permute_data <- function(dat_tb, dat_surv, permute = FALSE, seed = NULL) {
+
+    if (!is.null(seed))
+        old_seed <- set.seed(seed)
+
+    if (permute) {
+        d_sub <- dat_tb %>%
+            select(SUBJID, ARM, RANDT) %>%
+            distinct()
+
+        d_sub$SUBJID <- sample(d_sub$SUBJID)
+
+        dat_tb <- dat_tb %>%
+            select(-ARM, -RANDT) %>%
+            left_join(d_sub)
+
+        dat_surv <- dat_surv %>%
+            select(-ARM, -RANDT) %>%
+            left_join(d_sub)
+    }
+
+    if (!is.null(seed))
+        set.seed(old_seed)
 
     list(dat_tb   = dat_tb,
          dat_surv = dat_surv)

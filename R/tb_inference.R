@@ -6,23 +6,34 @@
 tb_estimate <- function(dat_sub, imp_surv, ...) {
     imp_m <- max(imp_surv$Imp)
     nsub  <- nrow(dat_sub)
-    rst   <- NULL
 
-    for (i in seq_len(nsub)) {
-        for (imp in seq_len(imp_m)) {
+    rst   <- NULL
+    for (imp in seq_len(imp_m)) {
+        cur_imp  <- NULL
+        tot_tana <- 0
+        for (i in seq_len(nsub)) {
             cur_uti <- tb_get_pt(id       = dat_sub[i, "SUBJID"],
                                  imp_surv = imp_surv,
                                  imp_inx  = imp, ...)
-            cur_rst <- c(i,
-                         imp,
-                         cur_uti$utility,
-                         cur_uti$auc,
-                         cur_uti$auc / cur_uti$t_ana)
-            rst <- rbind(rst, cur_rst)
+
+            tot_tana <- tot_tana + cur_uti$t_ana
+            cur_rst  <- c(i,
+                          cur_uti$utility,
+                          cur_uti$utility / cur_uti$t_ana,
+                          cur_uti$t_ana)
+
+            cur_imp <- rbind(cur_imp, cur_rst)
         }
+
+        rst <- rbind(rst,
+                     cbind(imp,
+                           cur_imp,
+                           cur_imp[, 2] / tot_tana))
     }
 
-    colnames(rst) <- c("inx", "imp", "utility", "auc", "adj_auc")
+    colnames(rst) <- c("imp",     "inx",
+                       "utility", "adj_utility",
+                       "t_ana",   "adj2_utility")
     dat_sub %>%
         mutate(inx = 1:n()) %>%
         left_join(data.frame(rst))
@@ -36,10 +47,11 @@ tb_estimate <- function(dat_sub, imp_surv, ...) {
 tb_estimate_summary <- function(rst_estimate, arm_control = "Chemotherapy") {
     rst_estimate %>%
         group_by(ARM, imp) %>%
-        summarize(utility = mean(utility),
-                  auc     = mean(auc),
-                  adj_auc = mean(adj_auc)) %>%
-        gather(Outcome, Value, utility, auc, adj_auc) %>%
+        summarize(utility      = mean(utility),
+                  adj_utility  = mean(adj_utility),
+                  adj2_utility = mean(adj2_utility),
+                  t_ana        = mean(t_ana)) %>%
+        gather(Outcome, Value, utility, adj_utility, adj2_utility, t_ana) %>%
         mutate(Value = if_else(ARM == arm_control, -Value, Value)) %>%
         ungroup() %>%
         group_by(Outcome, imp) %>%
@@ -116,11 +128,12 @@ tb_get_all <- function(dat_tb, dat_surv,
     }
 
     ## return
-    list(params   = params,
-         msm_surv = msm_surv,
-         msm_fit  = msm_fit,
-         imp_surv = imp_surv,
-         estimate = rst)
+    list(params     = params,
+         msm_surv   = msm_surv,
+         msm_fit    = msm_fit,
+         imp_surv   = imp_surv,
+         f_estimate = "tb_get_all",
+         estimate   = rst)
 }
 
 #' Overall results with bootstrap results
@@ -132,12 +145,14 @@ tb_get_all_bs <- function(rst_orig, nbs = 100, seed = 1234, n_cores = 5) {
     if (!is.null(seed))
         old_seed <- set.seed(seed)
 
+    f_estimate <- get(rst_orig$f_estimate)
+    params     <- rst_orig$params
+
     rst <- parallel::mclapply(seq_len(nbs),
                               function(x) {
                                   cat("--Rep ", x, "\n")
-                                  params        <- rst_orig$params
                                   params$inx_bs <- x
-                                  rst <- do.call(tb_get_all, params)
+                                  rst           <- do.call(f_estimate, params)
 
                                   rst$estimate
                               }, mc.cores = n_cores)
@@ -146,7 +161,9 @@ tb_get_all_bs <- function(rst_orig, nbs = 100, seed = 1234, n_cores = 5) {
         set.seed(old_seed)
 
     ## summary
-    rst     <- rbind(rst_orig$estimate, rbindlist(rst))
+    rst     <- rbind(rst_orig$estimate,
+                     rbindlist(rst))
+
     summary <- rst %>%
         filter(0 == inx_bs) %>%
         select(-inx_bs) %>%

@@ -175,24 +175,70 @@ tb_plt_tb <- function(dat_tb, sel_ids = NULL, by_var = c("ARM")) {
 
 }
 
+
 #' Survival curves
 #'
 #' @export
 #'
-tb_plt_km <- function(dat_surv, prefix = "PFS", by_var = c("ARM")) {
-    dat_surv$status <- dat_surv[[paste(prefix, "_", "CNSR", sep = "")]]
-    dat_surv$time   <- dat_surv[[paste(prefix, "_", "DAYS", sep = "")]]
+tb_plt_km <- function(dat_surv, type = c("PFS", "OS"), ...) {
 
-    dat_surv <- dat_surv %>%
-        mutate(status = if_else(0 == status, 1, 0))
+    type       <- match.arg(type)
+    var_status <- paste(type, "_", "CNSR", sep = "")
+    var_time   <- paste(type, "_", "DAYS", sep = "")
 
-    s_fml <- paste("Surv(time, status) ~",
-                   paste(by_var, collapse = "+"))
+    plot_km(dat_surv, var_time, var_status, lab_y = type, ..., )
+}
 
-    s_fml <- as.formula(s_fml)
-    fit   <- survfit(as.formula(s_fml), data = dat_surv)
-    fit$call$formula <- s_fml
 
-    ggsurvplot(fit, data = dat_surv) +
-        labs(y = prefix)
+#' Survival curves for imputed survival
+#'
+#' @export
+#'
+tb_plt_km_imp <- function(imp_surv, dat_surv, inx_imp = NULL,
+                          type = c("PFS", "OS"), ...) {
+    type     <- match.arg(type)
+    dat_surv <- imp_surv %>%
+        left_join(dat_surv) %>%
+        mutate(status = 0)
+
+    if (!is.null(inx_imp)) {
+        dat_surv <- dat_surv %>%
+            filter(Imp == inx_imp)
+    }
+
+    stopifnot(nrow(dat_surv) > 0)
+
+    if ("PFS" == type) {
+        dat_surv$time <- apply(dat_surv[, c("IT_PFS", "IT_OS")], 1,
+                               function(x) min(x, na.rm = TRUE))
+    } else {
+        dat_surv$time <- dat_surv$IT_OS
+    }
+
+    plot_km(dat_surv, "time", "status", lab_y = type, ...)
+}
+
+#' Summarize imputed survival data
+#'
+#'
+#' @export
+#'
+tb_summary_imp <- function(imp_surv, dat_surv, inx_imp = NULL,
+                           by_var = c("ARM")) {
+    dat_surv <- imp_surv %>%
+        left_join(dat_surv)
+
+    if (!is.null(inx_imp)) {
+        dat_surv <- dat_surv %>%
+            filter(Imp == inx_imp)
+    }
+
+    dat_surv %>%
+        group_by(!!as.name(by_var)) %>%
+        summarize(Progression_Rate  = mean(is.na(IT_PFS)),
+                  Progession_Mean   = mean(IT_PFS,   na.rm = T),
+                  Progession_Median = median(IT_PFS, na.rm = T),
+                  OS_Mean           = mean(IT_OS,    na.rm = T),
+                  OS_Median         = median(IT_OS,  na.rm = T)
+                  )
 }

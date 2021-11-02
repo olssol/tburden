@@ -89,6 +89,7 @@ shinyServer(function(input, output, session) {
         tb_plt_tb(dat_tb, id, by_var = input$inByvar)
     })
 
+    ## observed survival
     output$pltPFS <- renderPlot({
         dta <- get_data()
 
@@ -106,6 +107,35 @@ shinyServer(function(input, output, session) {
 
         tb_plt_km(dta$dat_surv, "OS", by_var = input$inByvar)
     })
+
+    ## imputed survival
+    output$pltImpPFS <- renderPlot({
+        dta <- get_data()
+
+        if (is.null(dta))
+            return(NULL)
+
+        tb_plt_km_imp(dta$imp_surv, dta$dat_surv,
+                      inx_imp = input$inImpInx, type = "PFS",
+                      by_var = input$inByvar,
+                      lim_x  = input$inSurvXlim)
+    })
+
+    output$pltImpOS <- renderPlot({
+        dta <- get_data()
+
+        if (is.null(dta))
+            return(NULL)
+
+        tb_plt_km_imp(dta$imp_surv, dta$dat_surv,
+                      inx_imp = input$inImpInx, type = "OS",
+                      by_var = input$inByvar,
+                      lim_x  = input$inSurvXlim)
+    })
+
+    ##--------------------------------------
+    ##---------TEXT-------------------------
+    ##--------------------------------------
 
     output$txtHist <- renderPrint({
         print(get_cur_hist())

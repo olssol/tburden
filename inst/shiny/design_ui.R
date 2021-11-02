@@ -100,7 +100,8 @@ tab_survival <- function() {
                        ),
              wellPanel(h4("Tumor Burden by Time"),
                        plotOutput("pltTb")),
-             wellPanel(fluidRow(
+             wellPanel(h4("Observed Survival"),
+                       fluidRow(
                            column(6,
                                   h4("Progression Free Survival"),
                                   plotOutput("pltPFS")),
@@ -109,6 +110,26 @@ tab_survival <- function() {
                                   plotOutput("pltOS"))
                        )),
              wellPanel(h4("Imputed Survival"),
+                       fluidRow(
+                           column(4,
+                                  selectInput(inputId = "inImpInx",
+                                              label   = "Index of Imputation",
+                                              choices = 1:5,
+                                              width   = "400px")),
+                           column(4,
+                                  sliderInput("inSurvXlim",
+                                              label = "",
+                                              value = 0, min = 0,
+                                              max = 8000, step = 100)
+                                  )),
+                       fluidRow(
+                           column(6,
+                                  h4("Imputed Progression Free Survival"),
+                                  plotOutput("pltImpPFS")),
+                           column(6,
+                                  h4("Imputed Overall Survival"),
+                                  plotOutput("pltImpOS"))
+                       ),
                        DT::dataTableOutput("dt_impsurv_summary")
                        ),
              wellPanel(h4("MSM Model Fitting Results"),
@@ -147,6 +168,25 @@ get_imp_data <- function(dat_surv, fml_surv) {
     imp_surv
 }
 
+## upload simulated results
+observe({
+    in_file <- input$inRdata
+
+    if (!is.null(in_file)) {
+        ss  <- load(in_file$datapath)
+        isolate({
+            userLog$data <- list(imp_surv      = rst_all$rst_orig$imp_surv,
+                                 fit_msm       = rst_all$rst_orig$msm_fit$mdl_fit,
+                                 dat_tb        = rst_all$rst_orig$params$dat_tb,
+                                 dat_surv      = rst_all$rst_orig$params$dat_surv,
+                                 formula_surv  = rst_all$rst_orig$params$fml_surv,
+                                 results       = rst_all$summary,
+                                 raw_dat_rs    = raw_dat_rs,
+                                 raw_dat_te    = raw_dat_te)
+        })
+    }
+})
+
 get_data <- reactive({
     ## ss <- load("./www/imp_data.Rdata")
     rst <- userLog$data
@@ -175,25 +215,6 @@ get_data <- reactive({
     }
 
     rst
-})
-
-## upload simulated results
-observe({
-    in_file <- input$inRdata
-
-    if (!is.null(in_file)) {
-        ss  <- load(in_file$datapath)
-        isolate({
-            userLog$data <- list(imp_surv      = rst_all$rst_orig$imp_surv,
-                                 fit_msm       = rst_all$rst_orig$msm_fit$mdl_fit,
-                                 dat_tb        = rst_all$rst_orig$params$dat_tb,
-                                 dat_surv      = rst_all$rst_orig$params$dat_surv,
-                                 formula_surv  = rst_all$rst_orig$params$fml_surv,
-                                 results       = rst_all$summary,
-                                 raw_dat_rs    = raw_dat_rs,
-                                 raw_dat_te    = raw_dat_te)
-        })
-    }
 })
 
 
@@ -311,13 +332,6 @@ get_impsurv_summary <- reactive({
     if (is.null(by_var))
         return(NULL)
 
-    dat$imp_surv %>%
-        left_join(dat$dat_tb) %>%
-        group_by_(.dots = by_var) %>%
-        summarize(Progression_Rate  = mean(is.na(IT_PFS)),
-                  Progession_Mean   = mean(IT_PFS,   na.rm = T),
-                  Progession_Median = median(IT_PFS, na.rm = T),
-                  OS_Mean           = mean(IT_OS,   na.rm = T),
-                  OS_Median         = median(IT_OS, na.rm = T)
-                  )
+    inx_imp <- input$inImpInx
+    tb_summary_imp(dat$imp_surv, dat$dat_surv, inx_imp, by_var)
 })
