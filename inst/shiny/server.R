@@ -1,13 +1,12 @@
 options(shiny.maxRequestSize = 200 * 1024 ^ 2)
-
 require(ggplot2)
 
 shinyServer(function(input, output, session) {
 
     source("design_ui.R", local = TRUE);
 
-    userLog          <- reactiveValues();
-    userLog$data     <- NULL;
+    userLog       <- reactiveValues();
+    userLog$data  <- NULL;
 
 
     ##--------------------------------------
@@ -73,6 +72,7 @@ shinyServer(function(input, output, session) {
     ##---------PLOTS------------------------
     ##--------------------------------------
 
+    ## plot AUC
     output$pltPt <- renderPlot({
         get_cur_plt()
     })
@@ -133,10 +133,20 @@ shinyServer(function(input, output, session) {
                       lim_x  = input$inSurvXlim)
     })
 
+    output$pltCorr <- renderPlot({
+        dta <- get_data()
+
+        if (is.null(dta))
+            return(NULL)
+
+        tb_plt_estimate(dta$estimate,
+                        var1 = input$inCorX,
+                        var2 = input$inCorY)
+    })
+
     ##--------------------------------------
     ##---------TEXT-------------------------
     ##--------------------------------------
-
     output$txtHist <- renderPrint({
         print(get_cur_hist())
     })
@@ -148,6 +158,17 @@ shinyServer(function(input, output, session) {
             return(NULL)
 
         print(dta$fit_msm)
+    })
+
+    output$txtSetting <- renderPrint({
+        dta <- get_data()
+
+        if (is.null(dta))
+            return(NULL)
+
+        params <- dta$params
+        params$dat_tb <- params$dat_surv <- params$inx_b <- NULL
+        print(params)
     })
 
     ##--------------------------------------
@@ -168,5 +189,15 @@ shinyServer(function(input, output, session) {
         dat$results
     }, options = list(dom = 't'))
 
+    ## ---------------------------------------
+    ##  CONDITIONAL PANEL
+    ## ---------------------------------------
+    output$loadcomplete <- reactive({
+        !is.null(get_data())
+    })
+
+    outputOptions(output,
+                  "loadcomplete",
+                  suspendWhenHidden = FALSE)
 
 })

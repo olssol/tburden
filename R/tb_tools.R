@@ -58,3 +58,65 @@ tb_bs_draw <- function(dat_tb, dat_surv, seed = NULL) {
     list(dat_tb   = dat_tb,
          dat_surv = dat_surv)
 }
+
+
+#' Get survival curves cut by a time point
+#'
+#'
+#' @export
+#'
+tb_surv_cut <- function(surv_f, t_dur = NULL) {
+    old_f  <- rbind(c(0, 1), surv_f)
+
+    if (!is.null(t_dur))  {
+        surv_f <- rbind(old_f, c(Inf, 0))
+        inx    <- which(surv_f[, 1] <= t_dur)
+        inx    <- max(inx)
+        surv_f <- rbind(surv_f[1:inx, ],
+                        cbind(t_dur, surv_f[inx, 2]))
+    }
+
+    list(surv_f     = old_f,
+         surv_f_dur = surv_f)
+}
+
+#' Get data from All results
+#'
+#'
+#' @export
+#'
+tb_extract_rst <- function(rst_all) {
+    list(imp_surv      = rst_all$rst_orig$imp_surv,
+         fit_msm       = rst_all$rst_orig$msm_fit$mdl_fit,
+         dat_tb        = rst_all$rst_orig$params$dat_tb,
+         dat_surv      = rst_all$rst_orig$params$dat_surv,
+         formula_surv  = rst_all$rst_orig$params$fml_surv,
+         formulat_tb   = rst_all$rst_orig$params$fml_tb,
+         uti_gamma     = rst_all$rst_orig$params$uti_gamma,
+         date_dbl      = rst_all$rst_orig$params$date_dbl,
+         reg_tb        = rst_all$rst_orig$reg_tb,
+         estimate      = rst_all$rst_orig$estimate_sub,
+         params        = rst_all$rst_orig$params,
+         results       = rst_all$summary)
+}
+
+#' Get AIC
+#'
+#'
+#' @export
+#'
+tb_extract_aic <- function(rst_orig) {
+    reg_tb <- rst_orig$reg_tb
+    rst    <- NULL
+
+    for (i in 1:length(reg_tb)) {
+        for (j in names(reg_tb[[i]])) {
+            rst <- rbind(rst,
+                         data.frame(Imp = i,
+                                    ARM = j,
+                                    AIC = reg_tb[[i]][[j]]$fit_aic))
+        }
+    }
+
+    rst
+}

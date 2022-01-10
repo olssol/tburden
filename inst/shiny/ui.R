@@ -25,7 +25,7 @@ shinyUI(
     fluidPage(theme = shinytheme("cosmo"),
               ## includeScript('www/tools.js'),
               ##css
-              tags$head(tags$title("TB"),
+              tags$head(tags$title("Tumor Burden"),
                         tags$link(rel = "stylesheet", type = "text/css",
                                   href = "styles.css"),
                         tags$link(rel = "stylesheet", type = "text/css",

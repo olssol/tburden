@@ -83,6 +83,13 @@ tb_get_data <- function(raw_dat_rs, raw_dat_te,
                PFS_CNSR,  OS_CNSR,
                PFS_EVENT, OS_EVENT)
 
+    ## missing data
+    warning(paste("Patients with missing covariates are",
+                  "excluded from the result dataset.\n",
+                  " Consider imputing the missing covariates",
+                  "first (e.g., by mice) \n",
+                  " before calling this function."))
+
     rst <- tb_permute_data(dat_tb, dat_surv, ...)
     rst
 }

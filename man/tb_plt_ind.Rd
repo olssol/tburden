@@ -13,7 +13,8 @@ tb_plt_ind(
   add_reflines_y = TRUE,
   add_poly = TRUE,
   add_title = TRUE,
-  add_line = TRUE
+  add_line = TRUE,
+  add_tb_obs = TRUE
 )
 }
 \description{

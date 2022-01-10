@@ -2,10 +2,10 @@
 % Please edit documentation in R/tb_inference.R
 \name{tb_estimate}
 \alias{tb_estimate}
-\title{Get average utiltity}
+\title{Get average utility}
 \usage{
-tb_estimate(dat_sub, imp_surv, ...)
+tb_estimate(dat_sub, dat_tb, imp_surv, reg_tb = NULL, ...)
 }
 \description{
-Get average utiltity
+Get average utility
 }

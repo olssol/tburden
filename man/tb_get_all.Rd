@@ -9,8 +9,12 @@ tb_get_all(
   dat_surv,
   inx_bs = 0,
   fml_surv = "~BASE+AGE+SEX+STRATA1+P1TERTL",
+  fml_tb = "~AGE+SEX+STRATA1+P1TERTL",
   imp_m = 5,
-  lst_par = list(Calendar = list(date_dbl = "2020-03-01", gamma = c(0.2, 0.5))),
+  fit_tb = TRUE,
+  date_dbl = "2020-03-01",
+  uti_gamma = c(0.2, 0.5),
+  scenario = "scenario",
   ...
 )
 }

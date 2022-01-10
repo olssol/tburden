@@ -207,7 +207,7 @@ tb_msm_fit <- function(msm_surv, fml_surv, v_censor = 0) {
     arms  <- unique(msm_surv$ARM)
     trans <- unique(msm_surv$trans)
 
-    rst <- list()
+    rst   <- list()
     for (a in arms) {
         lst_a <- list()
         for (i in trans) {
@@ -216,8 +216,24 @@ tb_msm_fit <- function(msm_surv, fml_surv, v_censor = 0) {
                        trans == i) %>%
                 mutate(status = if_else(status == v_censor, 0, 1))
 
-            lst_a[[i]] <- flexsurvreg(fml, data = cur_d, dist = "exp")
+            if (0 == nrow(cur_d)) {
+                warning("Not enough survival outcomes")
+                return(NULL)
+            }
+
+            cur_rst <- tryCatch({
+                flexsurvreg(fml, data = cur_d, dist = "exp")
+            }, warning = function(war) {
+                print(war)
+                return(NULL)
+            })
+
+            if (is.null(cur_rst))
+                return(NULL)
+
+            lst_a[[i]] <- cur_rst
         }
+
         rst[[a]] <- lst_a
     }
 
@@ -287,6 +303,7 @@ tb_msm_imp_single <- function(d, mdl_fit, imp_m) {
     }
 
 
+    ## imputation
     if (0 == d$OS_CNSR &
         0 == d$PFS_CNSR) {
         cur_rst <- f_1()
@@ -301,14 +318,28 @@ tb_msm_imp_single <- function(d, mdl_fit, imp_m) {
         cur_rst <- f_4()
     }
 
-    cur_rst           <- cbind(seq_len(imp_m), cur_rst)
-    colnames(cur_rst) <- c("Imp", "IT_PFS", "IT_OS")
+    ## Earliest event
+    cur_event <- cur_rst
+    cur_event[is.na(cur_event)] <- Inf
+    cur_event <- apply(cur_event, 1, function(x) {
+        time  <- min(x)
+        event <- if_else(time == x[1], 1, 2)
+        c(time, event)
+    })
+
+    ## combine results
+    cur_rst <- cbind(seq_len(imp_m), cur_rst, t(cur_event))
+
+    colnames(cur_rst) <- c("Imp", "IT_PFS", "IT_OS", "IT_Time", "IT_Event")
     rownames(cur_rst) <- NULL
 
     ## return
-    rst        <- data.frame(cur_rst)
+    rst <- data.frame(cur_rst)
     rst$SUBJID <- d$SUBJID
     rst$RANDT  <- d$RANDT
+    rst$IT_Event <- factor(rst$IT_Event,
+                           1:2,
+                           c("Progression", "Death"))
 
     rst
 }
@@ -351,4 +382,23 @@ tb_msm_imp <- function(fit_rst, ..., seed = 10000) {
 
     ## return
     rst
+}
+
+
+#' Fit KM survival curve
+#'
+#'
+#'  @export
+#'
+tb_km_surv <- function(dta_surv, formula = "Surv(time, event) ~ arm") {
+
+    surv_fit  <- survfit(as.formula(formula), data = dta_surv)
+    surv_test <- survdiff(as.formula(formula), data = dta_surv)
+    pval      <- 1 - pchisq(surv_test$chisq,
+                            length(surv_test$n) - 1)
+
+    list(dta_surv  = dta_surv,
+         surv_fit  = surv_fit,
+         surv_test = surv_test,
+         pval      = pval)
 }

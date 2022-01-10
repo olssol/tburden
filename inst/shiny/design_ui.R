@@ -1,83 +1,101 @@
 ##-------------------------------------------------------------
 ##           UI FUNCTIONS
 ##-------------------------------------------------------------
-tab_present <- function() {
-    tabPanel("AUC",
-             fluidRow(column(7,
-                             wellPanel(h4("Survival Data"),
-                                       div(DT::dataTableOutput("dt_surv"),
-                                           style = "font-size:90%")),
-                             wellPanel(
-                                 h4("Survival Outcome"),
-                                 DT::dataTableOutput("dt_impsurv")
-                             ),
-                             wellPanel(
-                                 h4("Baseline"),
-                                 DT::dataTableOutput("dt_cov"),
-                                 h4("Tumor Burden"),
-                                 DT::dataTableOutput("dt_tb")
-                             )),
-                      column(5,
-                             wellPanel(
-                                 h4("History and AUC"),
-                                 plotOutput("pltPt", height = "500px"),
-                                 sliderInput("inXlim",
-                                             label = "",
-                                             value = 0, min = 0, max = 5000, step = 100)
-                             ),
-                             wellPanel(h4("Options for Utility Plot"),
-                                       fluidRow(
-                                           column(5,
-                                                  radioButtons("inAnaTime",
-                                                               "Time for the Final Analysis",
-                                                               choices = c("Calendar Time" = 1,
-                                                                           "Fixed Time"    = 2)),
-                                                  textInput("inDBL",
-                                                            label = "Date of Analysis for (Calendar Time",
-                                                            value = "2020-03-01"),
-                                                  numericInput("inTana",
-                                                               label = "Time for Analysis in Months (Fixed Time)",
-                                                               value = 36)
-                                                  ),
-                                           column(3,
-                                                  numericInput("inGammaPFS",
-                                                               label = "Utility post PFS",
-                                                               value = 0.2),
-                                                  numericInput("inGammaOS",
-                                                               label = "Utility post OS",
-                                                               value = 0.5),
-                                                  checkboxInput("inLocf",
-                                                                label = "LOCF",
-                                                                value = FALSE)
-                                                  )
-                                       )),
-                             wellPanel(h4("Utility Details"),
-                                       verbatimTextOutput("txtHist"))
-                             )))
-}
-
 tab_upload <- function() {
     tabPanel("Upload Data",
              wellPanel(h4("Select R Data to Upload"),
                        fluidRow(
                            column(4,
                                   fileInput(inputId = 'inRdata',
-                                            label   = 'Choose the analysis result R data file',
+                                            label   = 'Choose result R data file',
                                             accept  = '.Rdata')
                                   ))
                        ),
-             wellPanel(h4("Create Pseudo Study"),
-                       numericInput("inFirstn",
-                                    label = "Keep the first N patients",
-                                    value = 999999,
-                                    width = "400px"),
-                       numericInput("inFudays",
-                                    label = "Follow up days since the last enrollment",
-                                    value = 999999,
-                                    width = "400px"),
-                       )
+             conditionalPanel(condition = "output.loadcomplete",
+                              wellPanel(h4("Results: Estimate and Confidence Interval"),
+                                        DT::dataTableOutput("dt_rst")
+                                        ),
+                              wellPanel(h4("Settings"),
+                                        verbatimTextOutput("txtSetting")))
+             ## wellPanel(h4("Create Pseudo Study"),
+             ##           numericInput("inFirstn",
+             ##                        label = "Keep the first N patients",
+             ##                        value = 999999,
+             ##                        width = "400px"),
+             ##           numericInput("inFudays",
+             ##                        label = "Follow up days since the last enrollment",
+             ##                        value = 999999,
+             ##                        width = "400px"),
+             ##           )
              )
 }
+
+panel_auc_options <- function() {
+    wellPanel(h4("Options for Utility Plot"),
+              fluidRow(
+                  column(5,
+                         radioButtons("inAnaTime",
+                                      "Time for the Final Analysis",
+                                      choices = c("Calendar Time" = 1,
+                                                  "Fixed Time"    = 2)),
+                         textInput("inDBL",
+                                   label = "Date of Analysis for (Calendar Time",
+                                   value = "2020-03-01"),
+                         numericInput("inTana",
+                                      label = "Time for Analysis in Months (Fixed Time)",
+                                      value = 36)
+                         ),
+                  column(3,
+                         numericInput("inGammaPFS",
+                                      label = "Utility post PFS",
+                                      value = 0.2),
+                         numericInput("inGammaOS",
+                                      label = "Utility post OS",
+                                      value = 0.5),
+                         checkboxInput("inLocf",
+                                       label = "LOCF",
+                                       value = FALSE)
+                         )
+              ))
+}
+
+tab_present <- function() {
+    tabPanel("AUC",
+             fluidRow(
+                 wellPanel(h4("Patient Survival Data"),
+                           div(DT::dataTableOutput("dt_surv"),
+                               style = "font-size:90%"))),
+             fluidRow(column(6,
+                             wellPanel(
+                                 h4("Baseline"),
+                                 DT::dataTableOutput("dt_cov")),
+                             wellPanel(
+                                 h4("Survival Outcome"),
+                                 DT::dataTableOutput("dt_impsurv")),
+                             wellPanel(
+                                 h4("Tumor Burden"),
+                                 DT::dataTableOutput("dt_tb"))
+                             ),
+                      column(6,
+                             wellPanel(
+                                 h4("History and AUC"),
+                                 plotOutput("pltPt", height = "500px"),
+                                 sliderInput("inXlim",
+                                             label = "",
+                                             value = 0,
+                                             min   = 0,
+                                             max   = 5000,
+                                             step  = 100),
+                                 checkboxInput("inRegTb",
+                                               "By observed TB",
+                                               value = FALSE)
+                             ))),
+             fluidRow(
+                 wellPanel(h4("Utility Details"),
+                           verbatimTextOutput("txtHist"))
+             ))
+}
+
 
 tab_results <- function() {
     tabPanel("Results",
@@ -137,14 +155,40 @@ tab_survival <- function() {
              )
 }
 
+tab_corr <- function() {
+    xx <- c("utility", "adj_utility",
+            "uti_tb", "uti_event", "t_ana")
+
+    tabPanel("Correlation",
+             wellPanel(h4("Select Subject-Level Measurements"),
+                       fluidRow(
+                           column(3,
+                                  selectInput(inputId = "inCorX",
+                                              label   = "X",
+                                              choices = xx,
+                                              selected = "uti_tb")
+                                  ),
+                           column(3,
+                                  selectInput(inputId = "inCorY",
+                                              label   = "Y",
+                                              choices = xx,
+                                              selected = "uti_event")))
+                       ),
+             wellPanel(h4("Correlation"),
+                       plotOutput("pltCorr", height = "800px"))
+             )
+}
+
+
 ##define the main tabset for beans
 tab_main <- function() {
     tabsetPanel(type = "pills",
                 id   = "mainpanel",
                 tab_upload(),
-                tab_present(),
                 tab_survival(),
-                tab_results()
+                tab_present(),
+                tab_corr()
+                ## ,tab_results()
                 )
 }
 
@@ -153,64 +197,44 @@ tab_main <- function() {
 ##-------------------------------------------------------------
 ##           DATA FUNCTIONS
 ##-------------------------------------------------------------
-
-get_imp_data <- function(dat_surv, fml_surv) {
-    ## multistate survival data
-    msm_surv <- tb_msm_set_surv(dat_surv) %>%
-        mutate(time = max(time, 10))
-
-    ## fit imputation model
-    msm_fit <- tb_msm_fit(msm_surv, fml_surv)
-
-    ## imputation
-    imp_surv <- tb_msm_imp(msm_fit, imp_m = imp_m)
-
-    imp_surv
-}
-
 ## upload simulated results
 observe({
     in_file <- input$inRdata
 
     if (!is.null(in_file)) {
         ss  <- load(in_file$datapath)
+        print("load data...")
         isolate({
-            userLog$data <- list(imp_surv      = rst_all$rst_orig$imp_surv,
-                                 fit_msm       = rst_all$rst_orig$msm_fit$mdl_fit,
-                                 dat_tb        = rst_all$rst_orig$params$dat_tb,
-                                 dat_surv      = rst_all$rst_orig$params$dat_surv,
-                                 formula_surv  = rst_all$rst_orig$params$fml_surv,
-                                 results       = rst_all$summary,
-                                 raw_dat_rs    = raw_dat_rs,
-                                 raw_dat_te    = raw_dat_te)
+            userLog$data <- tb_extract_rst(rst_all)
         })
     }
 })
 
 get_data <- reactive({
-    ## ss <- load("./www/imp_data.Rdata")
     rst <- userLog$data
     if (is.null(rst)) {
         return(NULL)
     }
 
-    first_n <- input$inFirstn
-    days_fu <- input$inFudays
-    if (!is.null(first_n) &
-        !is.null(days_fu)) {
+    if (0) {
+        first_n <- input$inFirstn
+        days_fu <- input$inFudays
+        if (!is.null(first_n) &
+            !is.null(days_fu)) {
 
-        ## only impute if smaller study created
-        if (first_n < 1000 |
-            days_fu < 10000) {
-            ana_data <- tb_get_data(rst$raw_dat_rs,
-                                    rst$raw_dat_te,
-                                    first_n,
-                                    days_fu)
+            ## only impute if smaller study created
+            if (first_n < 1000 |
+                days_fu < 10000) {
+                ana_data <- tb_get_data(rst$raw_dat_rs,
+                                        rst$raw_dat_te,
+                                        first_n,
+                                        days_fu)
 
-            rst$dat_tb   <- ana_data$dat_tb
-            rst$dat_surv <- ana_data$dat_surv
-            rst$imp_surv <- get_imp_data(rst$dat_surv,
-                                         rst$formula_surv)
+                rst$dat_tb   <- ana_data$dat_tb
+                rst$dat_surv <- ana_data$dat_surv
+                rst$imp_surv <- get_imp_data(rst$dat_surv,
+                                             rst$formula_surv)
+            }
         }
     }
 
@@ -274,6 +298,7 @@ get_cur_tb <- reactive({
         filter(SUBJID == id)
 })
 
+## get patient history
 get_cur_hist <- reactive({
     id <- get_cur_id()
 
@@ -288,22 +313,32 @@ get_cur_hist <- reactive({
     if (is.null(dat))
         return(NULL)
 
-    time_dbl  <- input$inDBL
-    gamma_pfs <- input$inGammaPFS
-    gamma_os  <- input$inGammaOS
+    if (0) {
+        time_dbl  <- input$inDBL
+        gamma_pfs <- input$inGammaPFS
+        gamma_os  <- input$inGammaOS
 
-    if (1 == input$inAnaTime) {
-        t_ana <- NULL
-    } else {
-        t_ana <- input$inTana * 365.25 / 12
+        if (1 == input$inAnaTime) {
+            t_ana <- NULL
+        } else {
+            t_ana <- input$inTana * 365.25 / 12
+        }
     }
 
-    d_pt      <- tb_get_pt(id, dat$imp_surv, dat$dat_tb,
-                           imp_inx  = imp_inx,
-                           t_ana    = t_ana,
-                           date_dbl = time_dbl,
-                           gamma    = c(gamma_pfs, gamma_os),
-                           locf     = input$inLocf)
+    if (input$inRegTb) {
+        reg_tb <- NULL
+    } else {
+        reg_tb <- dat$reg_tb
+    }
+
+    d_pt <- tb_get_pt(id,
+                      imp_surv  = dat$imp_surv,
+                      dat_tb    = dat$dat_tb,
+                      imp_inx   = imp_inx,
+                      t_ana     = NULL,
+                      date_dbl  = dat$date_dbl,
+                      uti_gamma = dat$uti_gamma,
+                      reg_tb    = reg_tb)
 
     d_pt
 })
@@ -313,11 +348,12 @@ get_cur_plt <- reactive({
     cur_his <- get_cur_hist()
     if (is.null(cur_his))
         return(NULL)
+
     rst   <- tb_plt_ind(cur_his, type = "uti")
     x_max <- input$inXlim
     if (!is.na(x_max)) {
         if (x_max > 0)
-            rst <- rst + coord_cartesian(xlim = c(0, x_max))
+             rst <- rst + coord_cartesian(xlim = c(0, x_max))
     }
 
     rst
@@ -335,3 +371,19 @@ get_impsurv_summary <- reactive({
     inx_imp <- input$inImpInx
     tb_summary_imp(dat$imp_surv, dat$dat_surv, inx_imp, by_var)
 })
+
+
+
+get_imp_data <- function(dat_surv, fml_surv) {
+    ## multistate survival data
+    msm_surv <- tb_msm_set_surv(dat_surv) %>%
+        mutate(time = max(time, 10))
+
+    ## fit imputation model
+    msm_fit <- tb_msm_fit(msm_surv, fml_surv)
+
+    ## imputation
+    imp_surv <- tb_msm_imp(msm_fit, imp_m = imp_m)
+
+    imp_surv
+}

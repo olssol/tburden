@@ -9,7 +9,8 @@ tb_plt_ind <- function(pt_his, ylim = NULL, xlim = NULL,
                        add_reflines_y = TRUE,
                        add_poly       = TRUE,
                        add_title      = TRUE,
-                       add_line       = TRUE) {
+                       add_line       = TRUE,
+                       add_tb_obs     = TRUE) {
 
     txt <- c("Progression", "Death", "Analysis")
 
@@ -27,8 +28,8 @@ tb_plt_ind <- function(pt_his, ylim = NULL, xlim = NULL,
         }
 
         cur_p + geom_polygon(data = cur_poly, aes(x = x, y = y),
-                            fill = col_poly,
-                            alpha = 0.2)
+                             fill = col_poly,
+                             alpha = 0.2)
     }
 
 
@@ -54,7 +55,6 @@ tb_plt_ind <- function(pt_his, ylim = NULL, xlim = NULL,
     ## d_post
     d_post <- d_ana %>%
         filter(Type == "Post")
-
 
     ## plot
     rst <- ggplot(data = d_ana %>% filter(Type == "Prior"),
@@ -102,7 +102,7 @@ tb_plt_ind <- function(pt_his, ylim = NULL, xlim = NULL,
 
     ## gamma values
     if (add_reflines_y) {
-        for (j in pt_his$gamma) {
+        for (j in pt_his$uti_gamma) {
             rst <- rst +
                 geom_hline(yintercept = j, lty = 2, col = "brown")
         }
@@ -110,14 +110,14 @@ tb_plt_ind <- function(pt_his, ylim = NULL, xlim = NULL,
 
     ## title
     if (add_title) {
-        g_tit <- paste(pt_his$id, " AUC = ", round(pt_his$uti, 2), sep = "")
+        g_tit <- paste(pt_his$id, " AUC = ", round(pt_his$utility, 2), sep = "")
         rst   <- rst +
             labs(title = g_tit)
     }
 
     ## lines and points
     rst <- rst +
-        geom_point(aes(pch = Time), size = 2) +
+        geom_point(aes(pch = Time), size = 1) +
         geom_point(data = d_post, aes(pch = Time)) +
         theme_bw() +
         lims(x = xlim, y = ylim)
@@ -130,6 +130,7 @@ tb_plt_ind <- function(pt_his, ylim = NULL, xlim = NULL,
 
     ## add vertical lines
     if (add_reflines_x) {
+        x_txt <- NULL
         for (i in txt) {
             cur_d <- d_ana %>% filter(Time == i)
 
@@ -137,10 +138,26 @@ tb_plt_ind <- function(pt_his, ylim = NULL, xlim = NULL,
                 next
 
             cur_x <- cur_d[1, "x"]
+            x_txt <- c(x_txt, cur_x)
             rst   <- rst +
-                geom_vline(xintercept = cur_x, lty = 2, col = "brown")
+                geom_vline(xintercept = cur_x,
+                           lty = 2,
+                           col = "brown")
         }
+
+        rst <- rst +
+            geom_text(data = data.frame(x = x_txt, l = txt),
+                      aes(x = x, y = -0.9, label = l),
+                      angle = 90, vjust = -0.5)
     }
+
+    ## add observed tb pchg
+    if (add_tb_obs) {
+        rst <- rst +
+            geom_point(data = data.frame(pt_his$tb_obs),
+                       aes(x = time_tb, y = tb), pch = 2, col = "red")
+    }
+
 
     ## return
     rst
@@ -241,4 +258,77 @@ tb_summary_imp <- function(imp_surv, dat_surv, inx_imp = NULL,
                   OS_Mean           = mean(IT_OS,    na.rm = T),
                   OS_Median         = median(IT_OS,  na.rm = T)
                   )
+}
+
+#' Plot survival curve with area under the curve
+#'
+#' @export
+#'
+tb_plt_surv <- function(surv_f, t_dur = NULL,
+                        type = c("rmf", "rmst"),
+                        ylim = NULL, xlim = NULL) {
+
+    type   <- match.arg(type)
+    surv_f <- tb_surv_cut(surv_f, t_dur)
+    rst    <- ggplot(data = data.frame(Time = surv_f$surv_f[, 1],
+                                       Y    = surv_f$surv_f[, 2]),
+                     aes(x = Time, y = Y)) +
+        labs(x = "Time", y = "Survival Probability") +
+        theme_bw() +
+        geom_step()
+
+    ## ploygon
+    if (!is.null(t_dur)) {
+        surv_dur <- surv_f$surv_f_dur
+        y_dur    <- switch(type,
+                           rmst = rbind(c(surv_dur[nrow(surv_dur), 1],
+                                          0),
+                                        c(0, 0)),
+                           rmf  = c(surv_dur[nrow(surv_dur), 1], 1))
+
+        surv_poly <- NULL
+        for (i in 1:(nrow(surv_dur) - 1)) {
+            surv_poly <- rbind(surv_poly,
+                               surv_dur[i, ],
+                               c(surv_dur[i + 1, 1], surv_dur[i, 2]))
+        }
+
+        surv_poly <- rbind(surv_poly, y_dur)
+        rst <- rst + geom_polygon(data = data.frame(x = surv_poly[, 1],
+                                                    y = surv_poly[, 2]),
+                                  aes(x = x, y = y),
+                                  alpha = 0.2)
+    }
+
+    rst
+}
+
+
+#' Plot correlation of utilities
+#'
+#'
+#'
+#'
+#' @export
+#'
+tb_plt_estimate <- function(rst_estimate, var1 = "uti_tb", var2 = "uti_event") {
+
+    rst_estimate$x <- rst_estimate[[var1]]
+    rst_estimate$y <- rst_estimate[[var2]]
+
+    sum_lm <- rst_estimate %>%
+        group_by(imp, ARM) %>%
+        summarize(R2 =  cor(x, y)) %>%
+        mutate(R2 = round(R2, 3))
+
+    ggplot(data = rst_estimate, aes(x = x, y = y)) +
+        geom_point() +
+        geom_smooth(method = "lm", se = FALSE) +
+        theme_bw() +
+        facet_grid(imp ~ ARM) +
+        labs(x = var1, y = var2) +
+        geom_label(data = sum_lm,
+                   aes(x = -Inf, y = Inf,
+                       label = paste("R2 = ", R2, sep = " ")),
+                   hjust = 0, vjust = 1)
 }

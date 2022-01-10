@@ -3,7 +3,7 @@
 #' @docType package
 #' @name    tburden-package
 #' @aliases tburden
-#'
+#' @useDynLib tburden, .registration = TRUE
 #'
 #' @import methods
 #' @import stats
@@ -18,8 +18,11 @@
 #' @importFrom tidyr gather
 #' @importFrom data.table rbindlist
 #' @importFrom flexsurv flexsurvreg
-#' @importFrom survival Surv survfit
+#' @importFrom survival Surv survfit coxph survdiff
 #' @importFrom survminer ggsurvplot
+#' @importFrom nlme lme
+#' @importFrom JM jointModel
+#' @importFrom lme4 lmer
 #'
 #' @description Tumor burden based treatment effect evaluation
 #'
