@@ -72,12 +72,14 @@ tb_surv_cut <- function(surv_f, t_dur = NULL) {
         surv_f <- rbind(old_f, c(Inf, 0))
         inx    <- which(surv_f[, 1] <= t_dur)
         inx    <- max(inx)
-        surv_f <- rbind(surv_f[1:inx, ],
+        surv_f_dur <- rbind(surv_f[1:inx, ],
                         cbind(t_dur, surv_f[inx, 2]))
+    } else {
+        surv_f_dur <- old_f
     }
 
     list(surv_f     = old_f,
-         surv_f_dur = surv_f)
+         surv_f_dur = surv_f_dur)
 }
 
 #' Get data from All results
@@ -119,4 +121,27 @@ tb_extract_aic <- function(rst_orig) {
     }
 
     rst
+}
+
+
+#'  Cox Regression
+#'
+#'
+#'
+#'
+#' @export
+#'
+tb_coxph <- function(dat_surv, var_time, var_status, fml = "ARM", event = 0) {
+
+    dat_surv$time   <- dat_surv[[var_time]]
+    dat_surv$status <- dat_surv[[var_status]]
+
+    dat_surv <- dat_surv %>%
+        mutate(status = if_else(event == status, 1, 0))
+
+    s_fml <- paste("Surv(time, status) ~", fml)
+    s_fml <- as.formula(s_fml)
+    fit   <- coxph(s_fml, data = dat_surv)
+
+    fit
 }

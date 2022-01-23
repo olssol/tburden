@@ -5,6 +5,10 @@
 #'
 tb_estimate <- function(dat_sub, dat_tb, imp_surv, reg_tb = NULL,
                         ...) {
+
+    if (is.null(imp_surv))
+        return(NULL)
+
     imp_m <- max(imp_surv$Imp)
     nsub  <- nrow(dat_sub)
 
@@ -48,7 +52,11 @@ tb_estimate <- function(dat_sub, dat_tb, imp_surv, reg_tb = NULL,
 #'
 #'@export
 #'
-tb_estimate_summary <- function(rst_estimate, arm_control = "Chemotherapy") {
+tb_estimate_summary <- function(rst_estimate,
+                                arm_control = "Chemotherapy", ...) {
+
+    if (is.null(rst_estimate))
+        return(NULL)
 
     ## check control arm label
     stopifnot(arm_control %in% unique(rst_estimate$ARM))
@@ -84,10 +92,15 @@ tb_get_all <- function(dat_tb, dat_surv,
                        date_dbl  = "2020-03-01",
                        uti_gamma = c(0.2, 0.5),
                        scenario  = "scenario",
-                       ...) {
+                       ...,
+                       seed      = NULL) {
 
-    params <- c(as.list(environment()),
-                list(...))
+    if (!is.null(seed))
+        old_seed <- set.seed(seed)
+
+    params     <- c(as.list(environment()),
+                    list(...))
+    params$seed <- NULL
 
     ## bootstrap samples
     if (0 != inx_bs) {
@@ -110,16 +123,16 @@ tb_get_all <- function(dat_tb, dat_surv,
                               10,
                               time))
 
-    ## survival: fit model
-    msm_fit  <- tb_msm_fit(msm_surv, fml_surv)
-
-    if (is.null(msm_fit)) {
-        warning("Failure in survival model fitting")
-        return(NULL)
-    }
-
-    ## survival imputation
-    imp_surv <- tb_msm_imp(msm_fit, imp_m = imp_m)
+    msm_fit  <- NULL
+    imp_surv <- NULL
+    tryCatch({
+        ## survival: fit model
+        msm_fit  <- tb_msm_fit(msm_surv, fml_surv)
+        ## survival imputation
+        imp_surv <- tb_msm_imp(msm_fit, imp_m = imp_m)
+    }, error = function(e) {
+        message("Error in survival imputation")
+    })
 
     ## tb regression
     if (fit_tb) {
@@ -144,15 +157,21 @@ tb_get_all <- function(dat_tb, dat_surv,
                            ...)
 
     ## estimate summary
-    rst <- tb_estimate_summary(rst_est) %>%
-        mutate(inx_bs   = inx_bs,
-               Scenario = scenario) %>%
-        data.frame()
+    rst <- tb_estimate_summary(rst_est, ...)
+
+    if (!is.null(rst))
+        rst <- rst %>%
+            mutate(inx_bs   = inx_bs,
+                   Scenario = scenario) %>%
+            data.frame()
 
     ## bootstrap
     if (0 != inx_bs) {
         rst_est <- NULL
     }
+
+    if (!is.null(seed))
+        set.seed(old_seed)
 
     ## return
     list(scenario     = scenario,
@@ -175,6 +194,8 @@ tb_get_all_bs <- function(rst_orig, nbs = 100, seed = 1234, n_cores = 5) {
     if (!is.null(seed))
         old_seed <- set.seed(seed)
 
+    all_seeds <- ceiling(abs(rnorm(nbs)) * 100000)
+
     if (0 == nbs) {
         rst <- list(rst_orig = rst_orig,
                     nbs      = nbs)
@@ -188,17 +209,19 @@ tb_get_all_bs <- function(rst_orig, nbs = 100, seed = 1234, n_cores = 5) {
                               function(x) {
                                   cat("--Rep ", x, "\n")
                                   params$inx_bs <- x
-                                  rst           <- do.call(f_estimate, params)
-
-                                  rst$estimate
-                              }, mc.cores = n_cores)
+                                  cur_rst <- do.call(f_estimate,
+                                                     c(params,
+                                                       list(seed = all_seeds[x])))
+                                  cur_rst$estimate
+                              },
+                              mc.cores = n_cores)
 
     if (!is.null(seed))
         set.seed(old_seed)
 
     ## summary
-    rst     <- rbind(rst_orig$estimate,
-                     rbindlist(rst))
+    rst <- rbind(rst_orig$estimate,
+                 rbindlist(rst))
 
     summary <- rst %>%
         filter(0 == inx_bs) %>%
@@ -206,7 +229,8 @@ tb_get_all_bs <- function(rst_orig, nbs = 100, seed = 1234, n_cores = 5) {
         left_join(rst %>%
                   filter(0 != inx_bs) %>%
                   group_by(Scenario, Outcome) %>%
-                  summarize(bs_sd = sd(Value))) %>%
+                  summarize(n     = n(),
+                            bs_sd = sd(Value))) %>%
         mutate(LB     = Value - 1.96 * bs_sd,
                UB     = Value + 1.96 * bs_sd,
                pvalue = 2 * (1 - pnorm(abs(Value / bs_sd))))

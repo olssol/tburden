@@ -36,109 +36,44 @@ tb_uti_surv_prob_single <- function(surv_f, t_dur, uti_gamma,
     uti
 }
 
-
-#' Generate history of a patient
+#' Utility from the original results
 #'
 #'
 #' @export
 #'
-tb_pt_hist <- function(time_tb, tb, time_event, t_ana,
-                       uti_gamma = c(0.2, 0.5),
-                       locf = FALSE, ...) {
+tb_uti_rst <- function(rst_orig, ...) {
 
-    ## remove NA pfs from event
-    if (is.na(time_event[1])) {
-        time_event <- time_event[-1]
-        uti_gamma  <- uti_gamma[-1]
-        ## os
-        ind_event  <- 2
-    } else {
-        ## pfs os
-        ind_event  <- 1:2
+    dat_tb  <- rst_orig$params$dat_tb
+    dat_sub <- dat_tb %>%
+        select(SUBJID, ARM) %>%
+        distinct()
+
+    rst <- NULL
+    for (w in seq(0.05, 0.95, by = 0.05)) {
+        cur_g   <- w / (1 - w)
+        cur_est <- tb_estimate(dat_sub   = dat_sub,
+                               imp_surv  = rst_orig$imp_surv,
+                               dat_tb    = dat_tb,
+                               reg_tb    = rst_orig$reg_tb,
+                               date_dbl  = rst_orig$params$date_dbl,
+                               uti_gamma = c(cur_g, cur_g),
+                               ...)
+
+        cur_summary <- cur_est %>%
+            group_by(SUBJID, ARM) %>%
+            summarise(uti_tb    = mean(uti_tb),
+                      uti_event = mean(uti_event)) %>%
+            group_by(ARM) %>%
+            summarise(n             = n(),
+                      var_uti_tb    = var(uti_tb) / n,
+                      var_uti_event = var(uti_event) / n) %>%
+            data.frame()
+
+        cur_var <- sum(cur_summary[1, 3:4]) +
+            sum(cur_summary[2, 3:4])
+
+        rst <- rbind(rst, c(w, cur_g, cur_var))
     }
 
-    ## remove tb after events
-    inx <- which(time_tb > min(time_event, na.rm = TRUE))
-    if (0 < length(inx)) {
-        time_tb <- time_tb[-inx]
-        tb      <- tb[-inx]
-    }
-
-    ## tumor burden
-    rst_x   <- c(time_tb, time_event)
-    rst_y   <- c(tb, uti_gamma)
-    rst_ind <- c(rep(0, length(tb)), ind_event)
-    ntot    <- length(rst_x)
-
-    ## locf setting
-    if (locf) {
-        last_t  <- time_tb[length(time_tb)]
-        last_tb <- tb[length(tb)]
-
-        rst_y[which(rst_x > last_t)] <- last_tb
-    }
-
-    ## adjust duration
-    npost <- sum(rst_x >= t_ana)
-
-    if (0 == npost) {
-        pri_ana <- cbind(x = c(rst_x, t_ana),
-                         y = c(rst_y, rst_y[ntot]),
-                         z = c(rst_ind, 3))
-
-        pos_ana <- NULL
-    } else {
-        inx <- ntot - npost
-        y0  <- rst_y[inx]
-        y1  <- rst_y[inx + 1]
-        x0  <- rst_x[inx]
-        x1  <- rst_x[inx + 1]
-        y_ana <- y0 + (y1 - y0) * (t_ana - x0) / (x1 - x0)
-
-        pri_ana <- cbind(x = c(rst_x[1:inx],   t_ana),
-                         y = c(rst_y[1:inx],   y_ana),
-                         z = c(rst_ind[1:inx], 3))
-
-        pos_ana <- cbind(x = c(t_ana, rst_x[- (1:inx)]),
-                         y = c(y_ana, rst_y[- (1:inx)]),
-                         z = c(3,     rst_ind[- (1:inx)]))
-    }
-
-    ## utility
-    uti_tb    <- 0
-    uti_event <- 0
-    for (i in 2:nrow(pri_ana)) {
-        y0  <- pri_ana[i - 1, 2] + 1
-        y1  <- pri_ana[i,     2] + 1
-        x0  <- pri_ana[i - 1, 1]
-        x1  <- pri_ana[i,     1]
-
-        cur_u   <- (y1 + y0) * (x1 - x0) / 2
-
-        if (0 == pri_ana[i - 1, 3]) {
-            uti_tb  <- uti_tb + cur_u
-        } else {
-            uti_event <- uti_event + cur_u
-        }
-    }
-    rst_uti <- uti_tb + uti_event
-
-    if (min(time_event) < t_ana) {
-        dur_event <- t_ana - min(time_event)
-    } else {
-        dur_event <- 0
-    }
-    dur_tb <- t_ana - dur_event
-
-    ## return
-    rst <- list(pri_ana     = pri_ana,
-                pos_ana     = pos_ana,
-                t_ana       = t_ana,
-                dur_tb      = dur_tb,
-                dur_event   = dur_event,
-                utility     = rst_uti - t_ana,
-                adj_utility = (rst_uti - t_ana) / t_ana,
-                uti_tb      = uti_tb    - dur_tb,
-                uti_event   = uti_event - dur_event,
-                uti_gamma   = uti_gamma)
+    rst
 }

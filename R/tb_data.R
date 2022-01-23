@@ -4,7 +4,8 @@
 #' @export
 #'
 tb_get_data <- function(raw_dat_rs, raw_dat_te,
-                        first_n = 99999, days_fu = 99999,
+                        first_n = 99999,
+                        days_fu = 99999,
                         ...) {
 
     ## censor events
@@ -32,7 +33,7 @@ tb_get_data <- function(raw_dat_rs, raw_dat_te,
         arrange(RANDT)
 
     cut_date_enroll <- dat_id[min(nrow(dat_id), first_n), "RANDT"]
-    dat_rs   <- dat_rs %>%
+    dat_rs          <- dat_rs %>%
         filter(RANDT <= cut_date_enroll)
 
     cut_date_fu <- cut_date_enroll + days_fu
@@ -90,7 +91,12 @@ tb_get_data <- function(raw_dat_rs, raw_dat_te,
                   "first (e.g., by mice) \n",
                   " before calling this function."))
 
+    ## permuate data if necessary
     rst <- tb_permute_data(dat_tb, dat_surv, ...)
+
+    ## add date_fu
+    rst$cut_date_fu <- cut_date_fu
+
     rst
 }
 

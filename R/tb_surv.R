@@ -202,14 +202,15 @@ tb_msm_set <- function(dat_surv) {
 #'
 tb_msm_fit <- function(msm_surv, fml_surv, v_censor = 0) {
 
-    fml  <- as.formula(paste("Surv(time, status)",
-                             fml_surv))
+    fml   <- as.formula(paste("Surv(time, status)",
+                              fml_surv))
     arms  <- unique(msm_surv$ARM)
     trans <- unique(msm_surv$trans)
 
     rst   <- list()
     for (a in arms) {
-        lst_a <- list()
+        lst_a <- rep(list(NULL), length(trans))
+
         for (i in trans) {
             cur_d <- msm_surv %>%
                 filter(ARM   == a &
@@ -217,20 +218,12 @@ tb_msm_fit <- function(msm_surv, fml_surv, v_censor = 0) {
                 mutate(status = if_else(status == v_censor, 0, 1))
 
             if (0 == nrow(cur_d)) {
-                warning("Not enough survival outcomes")
-                return(NULL)
+                warning(paste("Not enough survival outcomes for ",
+                              a, " trans ", i))
+                next
             }
 
-            cur_rst <- tryCatch({
-                flexsurvreg(fml, data = cur_d, dist = "exp")
-            }, warning = function(war) {
-                print(war)
-                return(NULL)
-            })
-
-            if (is.null(cur_rst))
-                return(NULL)
-
+            cur_rst    <- flexsurvreg(fml, data = cur_d, dist = "exp")
             lst_a[[i]] <- cur_rst
         }
 
@@ -296,6 +289,9 @@ tb_msm_imp_single <- function(d, mdl_fit, imp_m) {
     fit_msm   <- mdl_fit[[d$ARM]]
     pred_mean <- NULL
     for (trans in 1:3) {
+        if (is.null(fit_msm[[trans]]))
+            stop("Fitting multistate model failed")
+
         cur_mean  <- predict(fit_msm[[trans]],
                              newdata = d,
                              type    = "response")
@@ -318,8 +314,11 @@ tb_msm_imp_single <- function(d, mdl_fit, imp_m) {
         cur_rst <- f_4()
     }
 
+    stopifnot(all(!is.nan(cur_rst)))
+
     ## Earliest event
     cur_event <- cur_rst
+
     cur_event[is.na(cur_event)] <- Inf
     cur_event <- apply(cur_event, 1, function(x) {
         time  <- min(x)
@@ -401,4 +400,187 @@ tb_km_surv <- function(dta_surv, formula = "Surv(time, event) ~ arm") {
          surv_fit  = surv_fit,
          surv_test = surv_test,
          pval      = pval)
+}
+
+#' Summarize imputed survival data
+#'
+#'
+#' @export
+#'
+tb_summary_imp <- function(imp_surv, dat_surv, inx_imp = NULL,
+                           by_var = c("ARM")) {
+    dat_surv <- imp_surv %>%
+        left_join(dat_surv)
+
+    if (!is.null(inx_imp)) {
+        dat_surv <- dat_surv %>%
+            filter(Imp == inx_imp)
+    }
+
+    dat_surv %>%
+        group_by(!!as.name(by_var)) %>%
+        summarize(Progression_Rate  = mean(is.na(IT_PFS)),
+                  Progession_Mean   = mean(IT_PFS,   na.rm = T),
+                  Progession_Median = median(IT_PFS, na.rm = T),
+                  OS_Mean           = mean(IT_OS,    na.rm = T),
+                  OS_Median         = median(IT_OS,  na.rm = T)
+                  )
+}
+
+
+## -----------------------------------------------------------------
+##
+##                  PRESENTATION
+##
+## -----------------------------------------------------------------
+
+#' Plot survival curve with area under the curve
+#'
+#' @export
+#'
+tb_plt_surv <- function(surv_f, t_dur = NULL,
+                        type = c("rmf", "rmst", "none"),
+                        y_lim = c(0, 1), x_lim = NULL) {
+
+    type     <- match.arg(type)
+    surv_dur <- tb_surv_cut(surv_f, t_dur)$surv_f_dur
+    surv_km  <- tb_surv_cut(surv_f, x_lim)$surv_f_dur
+
+    ## survival curves
+    rst    <- ggplot(data = data.frame(Time = surv_km[, 1],
+                                       Y    = surv_km[, 2]),
+                     aes(x = Time, y = Y)) +
+        labs(x = "Time", y = "Survival Probability") +
+        ylim(y_lim) +
+        theme_bw() +
+        geom_step()
+
+    if (is.null(x_lim)) {
+        rst <- rst + xlim(c(0, x_lim))
+    }
+
+    if (type == "none")
+        return(rst)
+
+    ## ploygon
+    if (!is.null(t_dur)) {
+        y_dur    <- switch(type,
+                           rmst = rbind(c(surv_dur[nrow(surv_dur), 1],
+                                          0),
+                                        c(0, 0)),
+                           rmf  = c(surv_dur[nrow(surv_dur), 1], 1))
+
+        surv_poly <- NULL
+        for (i in 1:(nrow(surv_dur) - 1)) {
+            surv_poly <- rbind(surv_poly,
+                               surv_dur[i, ],
+                               c(surv_dur[i + 1, 1], surv_dur[i, 2]))
+        }
+
+        surv_poly <- rbind(surv_poly, y_dur)
+        rst <- rst + geom_polygon(data = data.frame(x = surv_poly[, 1],
+                                                    y = surv_poly[, 2]),
+                                  aes(x = x, y = y),
+                                  alpha = 0.2)
+    }
+
+    rst
+}
+
+#' Plot patients by enrollment
+#'
+#' @export
+#'
+tb_plt_onstudy <- function(t_enroll, t_time, event, t_dur,
+                           add_auc = FALSE, auc_k = 1.2,
+                           add_lab = TRUE, size_lab = 8, hjust_lab = -1,
+                           h = 0.4) {
+
+    lab_e <- c("Censored", "Event", "Enrolled")
+    dat <- data.frame(t_enroll = t_enroll,
+                      time     = t_time,
+                      event    = event) %>%
+        arrange(t_enroll) %>%
+        mutate(y     = row_number(),
+               event = factor(event, 0:2, lab_e))
+
+    rst <- ggplot(data = dat, aes(x = time, y = y)) +
+        geom_point(aes(pch = event, color = event)) +
+        geom_vline(xintercept = t_dur, lty = 2) +
+        geom_vline(xintercept = 0, lty = 2) +
+        geom_text(aes(x = 0, y = 5, label = "Study Started"),
+                  angle = 90, vjust = -0.5) +
+        geom_text(aes(x = t_dur, y = 5, label = "Study Finished"),
+                  angle = 90, vjust = 1) +
+        labs(xlim = c(-0.1, t_dur * 1.05), lty = 2) +
+        theme_bw() +
+        theme(
+            axis.line    = element_blank(),
+            axis.text    = element_blank(),
+            axis.ticks   = element_blank(),
+            axis.title   = element_blank(),
+            panel.grid   = element_blank(),
+            legend.title = element_blank(),
+            legend.position = "bottom")
+
+    ## geom_point(data = data.frame(x     = dat$t_enroll,
+    ##                              y     = dat$y,
+    ##                              event = factor(2, 0:2, lab_e)),
+    ##            aes(x     = x,
+    ##                y     = y,
+    ##                pch   = event,
+    ##                color = event)) +
+
+    ## add line
+    for (i in 1:nrow(dat)) {
+        pt    <- dat[i, "time"]
+        t_enr <- dat[i, "t_enroll"]
+        pe    <- "Event" == dat[i, "event"]
+        pd    <- data.frame(x = c(t_enr, pt),
+                            y = c(i, i))
+        rst <- rst +
+            geom_line(data = pd, aes(x = x, y = y))
+
+        if (add_auc) {
+            if (pe) {
+                rst <- rst +
+                    geom_line(data = data.frame(x = c(pt, pt, t_dur),
+                                               y = c(i, i + h, i + h)),
+                              aes(x = x, y = y))
+                pt_imp <- pt
+            } else {
+                pt_imp <- runif(1, pt, pt + auc_k * (t_dur - pt))
+                pt_imp <- min(pt_imp, t_dur)
+                rst    <- rst +
+                    geom_line(data = data.frame(
+                                  x = c(pt, pt_imp, pt_imp, t_dur),
+                                  y = c(i,  i, i + h, i + h)),
+                              aes(x = x, y = y), lty = 2)
+            }
+
+            rst <- rst +
+                geom_polygon(data = data.frame(
+                                 x = c(pt_imp, pt_imp, t_dur, t_dur),
+                                 y = c(i, i + h, i + h, i)),
+                             aes(x = x, y = y),
+                             fill = "gray30",
+                             alpha = 0.2)
+        }
+    }
+
+    ## add pt label
+    if (add_lab) {
+        dat_lab <- data.frame(x    = dat$t_enroll,
+                              y    = dat$y,
+                              labs = paste("P", dat$y, sep = ""))
+
+        rst <- rst +
+            geom_label(data = dat_lab,
+                       aes(x = x, y = y, label = labs),
+                       hjust = hjust_lab,
+                       size  = size_lab)
+    }
+
+    ## return
+    rst
 }

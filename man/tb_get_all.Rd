@@ -15,7 +15,8 @@ tb_get_all(
   date_dbl = "2020-03-01",
   uti_gamma = c(0.2, 0.5),
   scenario = "scenario",
-  ...
+  ...,
+  seed = NULL
 )
 }
 \description{

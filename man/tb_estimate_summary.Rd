@@ -4,7 +4,7 @@
 \alias{tb_estimate_summary}
 \title{Summarize estimation results}
 \usage{
-tb_estimate_summary(rst_estimate, arm_control = "Chemotherapy")
+tb_estimate_summary(rst_estimate, arm_control = "Chemotherapy", ...)
 }
 \description{
 Summarize estimation results
