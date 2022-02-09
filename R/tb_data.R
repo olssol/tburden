@@ -28,61 +28,52 @@ tb_get_data <- function(raw_dat_rs, raw_dat_te,
                PARAMCD == "SUMTLDLO")
 
     dat_id <- dat_rs %>%
-        select(SUBJID, RANDT) %>%
+        select(SUBJID, RANDT, ARM,
+               BASE, AGE, SEX,
+               ECOGGR1, STRATA1, P1TERTL) %>%
         distinct()  %>%
+        mutate(SCL_AGE  = scale(AGE),
+               SCL_BASE = scale(BASE)) %>%
         arrange(RANDT)
 
     cut_date_enroll <- dat_id[min(nrow(dat_id), first_n), "RANDT"]
-    dat_rs          <- dat_rs %>%
-        filter(RANDT <= cut_date_enroll)
-
-    cut_date_fu <- cut_date_enroll + days_fu
+    cut_date_fu     <- cut_date_enroll + days_fu
 
     ## tumor burden
     dat_tb <- dat_rs %>%
-        select(ARM, SUBJID, RANDT, VISIT, AVISITN, PCHG,
-               BASE, AGE, SEX,
-               ECOGGR1, STRATA1, P1TERTL) %>%
-        arrange(ARM, SUBJID, AVISITN, PCHG) %>%
+        select(SUBJID, VISIT, AVISITN, PCHG) %>%
+        arrange(SUBJID, AVISITN, PCHG) %>%
         mutate(PCHG = if_else(1 == AVISITN, 0, PCHG / 100),
                DAY  = if_else(1 == AVISITN, 0, AVISITN)) %>%
-        filter(DAY <= cut_date_fu - RANDT + 1)
+        left_join(dat_id, by = "SUBJID") %>%
+        filter(DAY <= cut_date_fu - RANDT + 1) %>%
+        filter(RANDT <= cut_date_enroll)
 
     ## survival
     dat_os <- raw_dat_te %>%
         filter(MITT1FL == "Y" &
                PARAMCD == "OS") %>%
-        select(SUBJID, RANDT, CNSR, EVNTDESC, AVAL) %>%
+        select(SUBJID, CNSR, EVNTDESC, AVAL) %>%
         f_censor() %>%
         rename(OS_CNSR  = CNSR,
                OS_EVENT = EVNTDESC,
-               OS_DAYS  = AVAL) %>%
-        select(-RANDT)
+               OS_DAYS  = AVAL)
 
     dat_pfs <- raw_dat_te %>%
         filter(MITT1FL == "Y"   &
                PARAMCD == "PFS" &
                EVAL    == "INDEPENDENT ASSESSOR") %>%
-        select(SUBJID, RANDT, CNSR, EVNTDESC, AVAL) %>%
+        select(SUBJID, CNSR, EVNTDESC, AVAL) %>%
         f_censor() %>%
         rename(PFS_CNSR  = CNSR,
                PFS_EVENT = EVNTDESC,
-               PFS_DAYS  = AVAL) %>%
-        select(-RANDT)
+               PFS_DAYS  = AVAL)
 
-    dat_surv <- dat_rs %>%
-        select(SUBJID, RANDT, ARM,
-               BASE, AGE, SEX,
-               ECOGGR1, STRATA1, P1TERTL) %>%
-        distinct() %>%
+    dat_surv <- dat_id %>%
         na.omit %>%
-        left_join(dat_pfs) %>%
-        left_join(dat_os) %>%
-        select(SUBJID, RANDT, ARM,
-               BASE, AGE, SEX, ECOGGR1, STRATA1, P1TERTL,
-               PFS_DAYS,  OS_DAYS,
-               PFS_CNSR,  OS_CNSR,
-               PFS_EVENT, OS_EVENT)
+        left_join(dat_pfs, by = "SUBJID") %>%
+        left_join(dat_os,  by = "SUBJID") %>%
+        filter(RANDT <= cut_date_enroll)
 
     ## missing data
     warning(paste("Patients with missing covariates are",
@@ -121,11 +112,11 @@ tb_permute_data <- function(dat_tb, dat_surv, permute = FALSE, seed = NULL) {
 
         dat_tb <- dat_tb %>%
             select(-ARM, -RANDT) %>%
-            left_join(d_sub)
+            left_join(d_sub, by = "SUBJID")
 
         dat_surv <- dat_surv %>%
             select(-ARM, -RANDT) %>%
-            left_join(d_sub)
+            left_join(d_sub, by = "SUBJID")
     }
 
     if (!is.null(seed))

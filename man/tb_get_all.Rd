@@ -15,9 +15,33 @@ tb_get_all(
   date_dbl = "2020-03-01",
   uti_gamma = c(0.2, 0.5),
   scenario = "scenario",
+  mdl_surv = c("msm", "weibull"),
   ...,
   seed = NULL
 )
+}
+\arguments{
+\item{dat_tb}{tumor burden dataset}
+
+\item{dat_surv}{survival dataset}
+
+\item{fml_surv}{formula for survival model}
+
+\item{fml_tb}{formula for tumor burden model}
+
+\item{imp_m}{number of imputations for each subject}
+
+\item{fit_tb}{whether fit tumor burden curve or only use the observed tumor
+burden}
+
+\item{date_dbl}{database lock date, i.e., analysis date}
+
+\item{scenario}{label of scenarios}
+
+\item{mdl_surv}{regression method for survival. msm: multi-state model;
+weibull: weibull regression for PFS}
+
+\item{uti_gamm}{utility gamma for progression and death}
 }
 \description{
 Overall results

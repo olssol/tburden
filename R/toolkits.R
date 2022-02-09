@@ -51,3 +51,12 @@ tkt_pval <- function(est, sd_est) {
 
     p_val
 }
+
+#' Get censoring risk by annual dropout rate
+#'
+#'@export
+#'
+#'
+tkt_lambda <- function(rate, tp = 1) {
+    - log(1 - rate) / tp
+}

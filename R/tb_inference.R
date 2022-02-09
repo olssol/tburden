@@ -44,7 +44,7 @@ tb_estimate <- function(dat_sub, dat_tb, imp_surv, reg_tb = NULL,
                        "t_ana")
     dat_sub %>%
         mutate(inx = 1:n()) %>%
-        left_join(data.frame(rst))
+        left_join(data.frame(rst), by = "inx")
 }
 
 #' Summarize estimation results
@@ -53,7 +53,8 @@ tb_estimate <- function(dat_sub, dat_tb, imp_surv, reg_tb = NULL,
 #'@export
 #'
 tb_estimate_summary <- function(rst_estimate,
-                                arm_control = "Chemotherapy", ...) {
+                                arm_control = "Chemotherapy",
+                                ...) {
 
     if (is.null(rst_estimate))
         return(NULL)
@@ -81,6 +82,19 @@ tb_estimate_summary <- function(rst_estimate,
 
 #' Overall results
 #'
+#' @param dat_tb tumor burden dataset
+#' @param dat_surv survival dataset
+#' @param fml_surv formula for survival model
+#' @param fml_tb formula for tumor burden model
+#' @param imp_m number of imputations for each subject
+#' @param fit_tb whether fit tumor burden curve or only use the observed tumor
+#'     burden
+#' @param date_dbl database lock date, i.e., analysis date
+#' @param uti_gamm utility gamma for progression and death
+#' @param scenario label of scenarios
+#' @param mdl_surv regression method for survival. msm: multi-state model;
+#'     weibull: weibull regression for PFS
+#'
 #' @export
 #'
 tb_get_all <- function(dat_tb, dat_surv,
@@ -92,15 +106,23 @@ tb_get_all <- function(dat_tb, dat_surv,
                        date_dbl  = "2020-03-01",
                        uti_gamma = c(0.2, 0.5),
                        scenario  = "scenario",
+                       mdl_surv  = c("msm", "weibull"),
                        ...,
                        seed      = NULL) {
 
-    if (!is.null(seed))
+    if (!is.null(seed)) {
+        message(paste("tb_get_all: Random seed set to ", seed))
         old_seed <- set.seed(seed)
+    }
 
-    params     <- c(as.list(environment()),
-                    list(...))
+    ## collect all parameters
+    params <- c(as.list(environment()),
+                list(...))
+    ## remove seed for bootstrap
     params$seed <- NULL
+
+    ## survival regression model approach
+    mdl_surv <- match.arg(mdl_surv)
 
     ## bootstrap samples
     if (0 != inx_bs) {
@@ -109,36 +131,54 @@ tb_get_all <- function(dat_tb, dat_surv,
             distinct()
 
         d_subjid <- d_subjid[sample(nrow(d_subjid), replace = TRUE), ,
-                             drop = FALSE]
+                             drop = FALSE] %>%
+            mutate(bs_id = as.character(1:n()))
 
         dat_tb   <- d_subjid %>%
-            left_join(dat_tb)
+            left_join(dat_tb, by = "SUBJID") %>%
+            select(- SUBJID) %>%
+            rename(SUBJID = bs_id)
         dat_surv <- d_subjid %>%
-            left_join(dat_surv)
+            left_join(dat_surv, by = "SUBJID") %>%
+            select(- SUBJID) %>%
+            rename(SUBJID = bs_id)
     }
 
-    ## survival: multi-state survival data
-    msm_surv <- tb_msm_set(dat_surv) %>%
-        mutate(time = if_else(0 == time,
-                              10,
-                              time))
 
-    msm_fit  <- NULL
+    ## survival
+    if ("msm" == mdl_surv) {
+        ##multi-state survival data
+        dat_imp_surv <- tb_msm_set(dat_surv) %>%
+            mutate(time = if_else(0 == time,
+                                  10,
+                                  time))
+        f_surv_fit <- tb_msm_fit
+    } else {
+        dat_imp_surv <- dat_surv
+        f_surv_fit   <- tb_weibull_fit
+    }
+
+    surv_fit <- NULL
     imp_surv <- NULL
+
+    ## survival: fit model
+    surv_fit  <- f_surv_fit(dat_imp_surv, fml_surv, ...)
+    ## survival imputation
+    imp_surv <- tb_surv_imp(surv_fit, imp_m = imp_m, ...)
+
     tryCatch({
-        ## survival: fit model
-        msm_fit  <- tb_msm_fit(msm_surv, fml_surv)
-        ## survival imputation
-        imp_surv <- tb_msm_imp(msm_fit, imp_m = imp_m)
+        tmp <- 0
     }, error = function(e) {
         message("Error in survival imputation")
     })
 
     ## tb regression
     if (fit_tb) {
-        reg_tb <- tb_regression(dat_tb, imp_surv,
+        reg_tb <- tb_regression(dat_tb,
+                                imp_surv,
                                 fml_tb    = fml_tb,
-                                uti_gamma = uti_gamma, ...)
+                                uti_gamma = uti_gamma,
+                                ...)
     } else {
         reg_tb <- NULL
     }
@@ -170,14 +210,15 @@ tb_get_all <- function(dat_tb, dat_surv,
         rst_est <- NULL
     }
 
-    if (!is.null(seed))
+    if (!is.null(seed)) {
+        message("tb_get_all: Random seed reset")
         set.seed(old_seed)
+    }
 
     ## return
     list(scenario     = scenario,
          params       = params,
-         msm_surv     = msm_surv,
-         msm_fit      = msm_fit,
+         surv_fit     = surv_fit,
          imp_surv     = imp_surv,
          reg_tb       = reg_tb,
          f_estimate   = "tb_get_all",
@@ -189,10 +230,12 @@ tb_get_all <- function(dat_tb, dat_surv,
 #'
 #' @export
 #'
-tb_get_all_bs <- function(rst_orig, nbs = 100, seed = 1234, n_cores = 5) {
+tb_get_all_bs <- function(rst_orig, nbs = 100, n_cores = 5, seed = NULL) {
 
-    if (!is.null(seed))
+    if (!is.null(seed)) {
+        message(paste("tb_get_all_bs: Random seed set to", seed))
         old_seed <- set.seed(seed)
+    }
 
     all_seeds <- ceiling(abs(rnorm(nbs)) * 100000)
 
@@ -216,8 +259,10 @@ tb_get_all_bs <- function(rst_orig, nbs = 100, seed = 1234, n_cores = 5) {
                               },
                               mc.cores = n_cores)
 
-    if (!is.null(seed))
+    if (!is.null(seed)) {
+        message(paste("tb_get_all_bs: Random seed reset"))
         set.seed(old_seed)
+    }
 
     ## summary
     rst <- rbind(rst_orig$estimate,
@@ -230,7 +275,8 @@ tb_get_all_bs <- function(rst_orig, nbs = 100, seed = 1234, n_cores = 5) {
                   filter(0 != inx_bs) %>%
                   group_by(Scenario, Outcome) %>%
                   summarize(n     = n(),
-                            bs_sd = sd(Value))) %>%
+                            bs_sd = sd(Value)),
+                  by = c("Scenario", "Outcome")) %>%
         mutate(LB     = Value - 1.96 * bs_sd,
                UB     = Value + 1.96 * bs_sd,
                pvalue = 2 * (1 - pnorm(abs(Value / bs_sd))))

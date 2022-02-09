@@ -51,9 +51,9 @@ tb_bs_draw <- function(dat_tb, dat_surv, seed = NULL) {
                          drop = FALSE]
 
     dat_tb   <- d_subjid %>%
-        left_join(dat_tb)
+        left_join(dat_tb, by = "SUBJID")
     dat_surv <- d_subjid %>%
-        left_join(dat_surv)
+        left_join(dat_surv, by = "SUBJID")
 
     list(dat_tb   = dat_tb,
          dat_surv = dat_surv)

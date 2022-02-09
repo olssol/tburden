@@ -1,6 +1,6 @@
 Package: tburden
 Title: Tumor burden based treatment effect evaluation
-Version: 2.0
+Version: 2.5
 Authors@R:
     person(given = "Chenguang",
            family = "Wang",

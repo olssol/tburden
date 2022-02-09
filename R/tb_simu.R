@@ -1,68 +1,78 @@
-#' Simulate Survival time for all
+## Simulation
+
+#' Simulate studies
 #'
 #'
-#'@export
+#' @export
 #'
-tb_simu_surv <- function(n, hd_prog = 0.5, hd_death = 1, hd_cens = 1,
-                         dur_enroll = 1, dur_study = 3,
-                         seed = NULL) {
+tb_simu_all <- function(dat_tb,
+                        n,
+                        surv_fit,
+                        tb_fit,
+                        trt_effect_surv  = 0,
+                        trt_effect_tb    = 0,
+                        rand_effect_surv = 0,
+                        rand_effect_tb   = c("(Intercept)"     = 0,
+                                             "poly(reg_t, 2, raw = TRUE)1" = 0,
+                                             "poly(reg_t, 2, raw = TRUE)2" = 0),
+
+                        ..., seed = NULL) {
 
     ## random seed
     if (!is.null(seed))
         old_seed <- set.seed(seed)
 
+    simu_pt_cov  <- tb_simu_cov_es(dta_es = dat_tb, n = n, ...)
+    simu_pt_surv <- tb_simu_surv_wb(simu_pt_cov,
+                                    surv_fit,
+                                    trt_effect  = trt_effect_surv,
+                                    rand_effect = rand_effect_surv,
+                                    ...)
 
-    t_enroll <- runif(n, min = 0, max = dur_enroll)
-    t_prog   <- sapply(1:n, function(x) {
-        rst <- tkt_simu_pwexp(hd_prog)
-        rst[1]
-    })
+    simu_pt_tb <- tb_simu_tb(simu_pt_surv$pt,
+                             tb_fit,
+                             trt_effect  = trt_effect_tb,
+                             rand_effect = rand_effect_tb,
+                             ...)
 
-    t_death  <- sapply(1:n, function(x) {
-        rst <- tkt_simu_pwexp(hd_death)
-        rst[1]
-    })
+    ## reset random seed
+    if (!is.null(seed)) {
+        set.seed(old_seed)
+    }
 
-    t_cens   <- sapply(1:n, function(x) {
-        rst <- tkt_simu_pwexp(hd_cens)
-        rst[1]
-    })
+    ## result
+    dat_tb   <- simu_pt_tb %>%
+        mutate(ARM = as.character(ARM)) %>%
+        select(- reg_t)
 
-    ## set seed
-    if (!is.null(seed))
-        old_seed <- set.seed(seed)
+    dat_surv <- simu_pt_surv$pt %>%
+        mutate(ARM = as.character(ARM))
 
-    ## summarize
-    rst <- cbind(t_enroll, t_cens, t_prog, t_death)
-    rst <- apply(rst, 1, function(x) {
-        o_dur <- dur_study - x[1]
+    list(dat_tb   = dat_tb,
+         dat_surv = dat_surv,
+         date_dbl = simu_pt_surv$date_dbl)
 
-        if (x[3] < min(x[2], x[4], o_dur)) {
-            o_prog <- x[3]
-        } else {
-            o_prog <- NA
-        }
+}
 
-        if (x[4] < min(x[2], o_dur)) {
-            o_death <- x[4]
-        } else {
-            o_death <- NA
-        }
+#' Summarize simulated patients
+#'
+#'
+#' @export
+#'
+tb_simu_present <- function(simu_pt) {
+    plt_surv <- plot_km(simu_pt, "PFS_DAYS", "PFS_CNSR", event = 1)
+    plt_tb   <- ggplot(data = simu_pt %>%
+                           filter(TB_mis == 0) %>%
+                           mutate(ARM = factor(ARM)),
+                       aes(x = DAY, y = PCHG)) +
+        geom_line(aes(group = SUBJID, col = ARM)) +
+        theme_bw()
 
-        if (is.na(o_death)) {
-            o_cens <- min(x[2], o_dur)
-        } else {
-            o_cens <- NA
-        }
+    tb_mis <- simu_pt %>%
+        group_by(DAY) %>%
+        summarize(m = mean(TB_mis))
 
-        c(x, o_prog, o_death, o_cens, o_dur)
-    })
-
-    ## return
-    rst           <- t(rst)
-    colnames(rst) <- c("T_Enroll", "T_Cens",  "T_Prog", "T_Death",
-                       "O_Prog",   "O_Death", "O_Cens", "O_Dur")
-    rownames(rst) <- NULL
-
-    data.frame(rst)
+    list(plt_surv = plt_surv,
+         plt_tb   = plt_tb,
+         tb_mis   = tb_mis)
 }

@@ -4,7 +4,7 @@
 \alias{tb_get_all_bs}
 \title{Overall results with bootstrap results}
 \usage{
-tb_get_all_bs(rst_orig, nbs = 100, seed = 1234, n_cores = 5)
+tb_get_all_bs(rst_orig, nbs = 100, n_cores = 5, seed = NULL)
 }
 \description{
 Overall results with bootstrap results
