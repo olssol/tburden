@@ -55,7 +55,6 @@ tb_weibull_imp_single <- function(d, fit_rst, imp_m, ...) {
         cur_rst <- cbind(seq_len(imp_m), d$time, 2)
     } else {
         ## 3: pfs
-
         if (fit_rst$by_arm) {
             mf <- mdl_fit[[d$ARM]]
         } else {

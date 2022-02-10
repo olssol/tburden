@@ -12,6 +12,7 @@ tb_get_pt(
   t_ana = NULL,
   imp_inx = 1,
   reg_tb = NULL,
+  by_arm = TRUE,
   ...
 )
 }

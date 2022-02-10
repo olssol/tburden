@@ -4,7 +4,7 @@
 \alias{tb_msm_fit}
 \title{Fit Survival MSM}
 \usage{
-tb_msm_fit(msm_surv, fml_surv, ind_event = 0, ...)
+tb_msm_fit(msm_surv, fml_surv, ind_event = 0, by_arm = TRUE, ...)
 }
 \description{
 Fit Survival MSM

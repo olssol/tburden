@@ -74,23 +74,16 @@ tb_msm_set <- function(dat_surv) {
 #'
 #' @export
 #'
-tb_msm_fit <- function(msm_surv, fml_surv, ind_event = 0, ...) {
+tb_msm_fit <- function(msm_surv, fml_surv,
+                       ind_event = 0,
+                       by_arm    = TRUE,
+                       ...) {
 
-    fml   <- as.formula(paste("Surv(time, status)",
-                              fml_surv))
-
-    arms  <- unique(msm_surv$ARM)
-    trans <- unique(msm_surv$trans)
-
-    rst   <- list()
-    for (a in arms) {
+    f_trans <- function(md) {
         lst_a <- rep(list(NULL), length(trans))
-
         for (i in trans) {
-            cur_d <- msm_surv %>%
-                filter(ARM   == a &
-                       trans == i) %>%
-                mutate(status = if_else(status == ind_event, 1, 0))
+            cur_d <- md %>%
+                filter(trans == i)
 
             if (0 == nrow(cur_d)) {
                 warning(paste("Not enough survival outcomes for ",
@@ -102,12 +95,32 @@ tb_msm_fit <- function(msm_surv, fml_surv, ind_event = 0, ...) {
             lst_a[[i]] <- cur_rst
         }
 
-        rst[[a]] <- lst_a
+        lst_a
+    }
+
+    fml   <- as.formula(paste("Surv(time, status)",
+                              fml_surv))
+
+    arms  <- unique(msm_surv$ARM)
+    trans <- unique(msm_surv$trans)
+    msm_surv <- msm_surv %>%
+        mutate(status = if_else(status == ind_event, 1, 0))
+
+    if (by_arm) {
+        rst  <- list()
+        for (a in arms) {
+            md <- msm_surv %>%
+                filter(ARM == a)
+            rst[[a]] <- f_trans(md)
+        }
+    } else {
+        rst <- f_trans(msm_surv)
     }
 
     list(dat_imp_surv = msm_surv,
          mdl_fit      = rst,
          fml_surv     = fml,
+         by_arm       = by_arm,
          method       = "msm")
 }
 
@@ -163,7 +176,12 @@ tb_msm_imp_single <- function(d, fit_rst, imp_m, ind_event = 0, ...) {
 
     ## mdl_fit result
     mdl_fit   <- fit_rst$mdl_fit
-    fit_msm   <- mdl_fit[[d$ARM]]
+    if (fit_rst$by_arm) {
+        fit_msm   <- mdl_fit[[d$ARM]]
+    } else {
+        fit_msm   <- mdl_fit
+    }
+
     pred_mean <- NULL
     for (trans in 1:3) {
         if (is.null(fit_msm[[trans]]))

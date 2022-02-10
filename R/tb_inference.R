@@ -62,7 +62,7 @@ tb_estimate_summary <- function(rst_estimate,
     ## check control arm label
     stopifnot(arm_control %in% unique(rst_estimate$ARM))
 
-    rst_estimate %>%
+    rst_value <- rst_estimate %>%
         group_by(ARM, imp) %>%
         summarize(utility      = mean(utility),
                   adj_utility  = mean(adj_utility),
@@ -70,7 +70,13 @@ tb_estimate_summary <- function(rst_estimate,
                   uti_event    = mean(uti_event),
                   t_ana        = mean(t_ana)) %>%
         gather(Outcome, Value, utility, adj_utility,
-               uti_tb, uti_event, t_ana) %>%
+               uti_tb, uti_event, t_ana)
+
+    rst_arm <- rst_value %>%
+        group_by(ARM, Outcome) %>%
+        summarize(Value = mean(Value))
+
+    rst_effect <- rst_value %>%
         mutate(Value = if_else(ARM == arm_control, -Value, Value)) %>%
         ungroup() %>%
         group_by(Outcome, imp) %>%
@@ -78,6 +84,9 @@ tb_estimate_summary <- function(rst_estimate,
         ungroup() %>%
         group_by(Outcome) %>%
         summarize(Value = mean(Value))
+
+    list(rst_arm    = rst_arm,
+         rst_effect = rst_effect)
 }
 
 #' Overall results
@@ -110,6 +119,13 @@ tb_get_all <- function(dat_tb, dat_surv,
                        ...,
                        seed      = NULL) {
 
+    f_abs <- function(d) {
+        d %>%
+            mutate(inx_bs   = inx_bs,
+                   Scenario = scenario) %>%
+            data.frame()
+    }
+
     if (!is.null(seed)) {
         message(paste("tb_get_all: Random seed set to ", seed))
         old_seed <- set.seed(seed)
@@ -118,6 +134,7 @@ tb_get_all <- function(dat_tb, dat_surv,
     ## collect all parameters
     params <- c(as.list(environment()),
                 list(...))
+
     ## remove seed for bootstrap
     params$seed <- NULL
 
@@ -125,27 +142,11 @@ tb_get_all <- function(dat_tb, dat_surv,
     mdl_surv <- match.arg(mdl_surv)
 
     ## bootstrap samples
-    if (0 != inx_bs) {
-        d_subjid <- dat_tb %>%
-            select(SUBJID) %>%
-            distinct()
+    bs_smp   <- tb_draw_bs(dat_tb, dat_surv, inx_bs)
+    dat_tb   <- bs_smp$dat_tb
+    dat_surv <- bs_smp$dat_surv
 
-        d_subjid <- d_subjid[sample(nrow(d_subjid), replace = TRUE), ,
-                             drop = FALSE] %>%
-            mutate(bs_id = as.character(1:n()))
-
-        dat_tb   <- d_subjid %>%
-            left_join(dat_tb, by = "SUBJID") %>%
-            select(- SUBJID) %>%
-            rename(SUBJID = bs_id)
-        dat_surv <- d_subjid %>%
-            left_join(dat_surv, by = "SUBJID") %>%
-            select(- SUBJID) %>%
-            rename(SUBJID = bs_id)
-    }
-
-
-    ## survival
+    ## survival and imputation
     if ("msm" == mdl_surv) {
         ##multi-state survival data
         dat_imp_surv <- tb_msm_set(dat_surv) %>%
@@ -160,14 +161,11 @@ tb_get_all <- function(dat_tb, dat_surv,
 
     surv_fit <- NULL
     imp_surv <- NULL
-
-    ## survival: fit model
-    surv_fit  <- f_surv_fit(dat_imp_surv, fml_surv, ...)
-    ## survival imputation
-    imp_surv <- tb_surv_imp(surv_fit, imp_m = imp_m, ...)
-
     tryCatch({
-        tmp <- 0
+        ## survival: fit model
+        surv_fit  <- f_surv_fit(dat_imp_surv, fml_surv, ...)
+        ## survival imputation
+        imp_surv <- tb_surv_imp(surv_fit, imp_m = imp_m, ...)
     }, error = function(e) {
         message("Error in survival imputation")
     })
@@ -198,32 +196,35 @@ tb_get_all <- function(dat_tb, dat_surv,
 
     ## estimate summary
     rst <- tb_estimate_summary(rst_est, ...)
-
-    if (!is.null(rst))
-        rst <- rst %>%
-            mutate(inx_bs   = inx_bs,
-                   Scenario = scenario) %>%
-            data.frame()
-
-    ## bootstrap
-    if (0 != inx_bs) {
-        rst_est <- NULL
+    if (!is.null(rst)) {
+        rst$rst_arm    <- f_abs(rst$rst_arm)
+        rst$rst_effect <- f_abs(rst$rst_effect)
     }
 
+    ## estimate parameters
+    est_par <- tb_get_para_est(surv_fit, reg_tb)
+
+    ## reset random seed
     if (!is.null(seed)) {
         message("tb_get_all: Random seed reset")
         set.seed(old_seed)
     }
 
     ## return
+    if (0 != inx_bs) {
+        rst_est <- NULL
+    }
+
     list(scenario     = scenario,
          params       = params,
          surv_fit     = surv_fit,
          imp_surv     = imp_surv,
          reg_tb       = reg_tb,
          f_estimate   = "tb_get_all",
+         estimate_par = est_par,
          estimate_sub = rst_est,
-         estimate     = rst)
+         estimate_arm = rst$rst_arm,
+         estimate     = rst$rst_effect)
 }
 
 #' Overall results with bootstrap results

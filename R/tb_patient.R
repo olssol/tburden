@@ -11,6 +11,7 @@ tb_get_pt <- function(id, imp_surv, dat_tb,
                       t_ana    = NULL,
                       imp_inx  = 1,
                       reg_tb   = NULL,
+                      by_arm   = TRUE,
                       ...) {
 
     d_surv <- imp_surv %>%
@@ -40,10 +41,13 @@ tb_get_pt <- function(id, imp_surv, dat_tb,
 
     ## tumor burden
     if (!is.null(reg_tb)) {
-        cur_pred <- tb_predict(id,
-                               reg_tb[[imp_inx]][[d_tb[1, "ARM"]]],
-                               ...)
+        if (by_arm) {
+            cur_reg <- reg_tb[[imp_inx]][[d_tb[1, "ARM"]]]
+        } else {
+            cur_reg <- reg_tb[[imp_inx]]
+        }
 
+        cur_pred <- tb_predict(id, cur_reg, ...)
         time_tb  <- cur_pred$time_tb
         tb       <- cur_pred$tb
     }
