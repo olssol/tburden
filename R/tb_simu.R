@@ -60,19 +60,98 @@ tb_simu_all <- function(dat_tb,
 #' @export
 #'
 tb_simu_present <- function(simu_pt) {
+    simu_pt  <- simu_pt$dat_tb %>%
+        mutate(ARM = factor(ARM,
+                            levels = 0:1,
+                            labels = c("Control", "Treatment")))
+
+    my_theme <- theme_bw() +
+        theme(strip.background = element_blank())
+
     plt_surv <- plot_km(simu_pt, "PFS_DAYS", "PFS_CNSR", event = 1)
     plt_tb   <- ggplot(data = simu_pt %>%
-                           filter(TB_mis == 0) %>%
-                           mutate(ARM = factor(ARM)),
+                           filter(TB_mis == 0),
                        aes(x = DAY, y = PCHG)) +
-        geom_line(aes(group = SUBJID, col = ARM)) +
-        theme_bw()
+        geom_line(aes(group = SUBJID)) +
+        labs(y = "Percent Change from Baseline") +
+        facet_wrap(~ARM, ncol = 1) +
+        my_theme
 
     tb_mis <- simu_pt %>%
-        group_by(DAY) %>%
-        summarize(m = mean(TB_mis))
+        group_by(ARM, DAY) %>%
+        summarize(m = mean(TB_mis),
+                  n = n()) %>%
+        filter(DAY > 0)
+
+    plt_mis <- ggplot(data = tb_mis,
+                      aes(x = DAY, y = m)) +
+        geom_bar(stat = "identity") +
+        geom_text(aes(label = n),
+                  vjust = 1.6,
+                  size = 3) +
+        labs(y = "Missing Rate") +
+        facet_wrap(~ARM, ncol = 1) +
+        my_theme
 
     list(plt_surv = plt_surv,
          plt_tb   = plt_tb,
-         tb_mis   = tb_mis)
+         plt_mis  = plt_mis)
+}
+
+#' Summarize simulated results
+#'
+#'
+#' @export
+#'
+tb_simu_summary <- function(nrep = 100, prefix = "./Results") {
+    rst_value <- list()
+    rst_par   <- list()
+    rst_true  <- NULL
+
+    for (i in 1:nrep) {
+        fi  <- paste(prefix, "/simu_rst_",
+                     i, ".Rdata", sep = "")
+
+        if (file.exists(fi)) {
+            load(fi)
+        } else {
+            print(paste(fi, "missing"))
+            next
+        }
+
+        rst_value <- c(rst_value,
+                       list(rst_all$summary %>%
+                            select("Outcome", "Value", "pvalue")))
+
+        rst_par   <- c(rst_par,
+                       list(rst_all$rst_orig$estimate_par %>%
+                            mutate(inx = 1:n())))
+
+        if (is.null(rst_true)) {
+            rst_true <- true_par %>%
+                mutate(inx = 1:n())
+        }
+    }
+
+    rst_value <- rbindlist(rst_value) %>%
+        mutate(rej = pvalue < 0.05) %>%
+        group_by(Outcome) %>%
+        summarize(Mean      = mean(Value),
+                  SD        = sd(Value),
+                  Rejection = mean(rej))
+
+    rst_par <- rbindlist(rst_par) %>%
+        left_join(rst_true %>%
+                  rename(Truth = Value) %>%
+                  select(inx, Truth),
+                  by = "inx") %>%
+        mutate(bias = Value - Truth,
+               mse  = (Value - Truth)^2) %>%
+        group_by(Type, Para) %>%
+        summarize(estimate = mean(Value),
+                  truth    = mean(Truth),
+                  bias     = mean(bias),
+                  mse      = mean(mse))
+
+    list(rst_value, rst_par)
 }

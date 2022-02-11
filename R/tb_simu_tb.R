@@ -83,7 +83,12 @@ tb_simu_tb <- function(pt_surv, mdl_fit,
         pmis <- f_mis(x)
         rbinom(1, 1, pmis)
     })
-    rst$TB_mis <- all_mis
+
+    rst <- rst %>%
+        mutate(TB_mis = all_mis) %>%
+        mutate(TB_mis = ifelse(DAY >= PFS_DAYS,
+                               1,
+                               TB_mis))
 
     ## set seed
     if (!is.null(seed))

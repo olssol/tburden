@@ -13,7 +13,7 @@ tb_get_all(
   imp_m = 5,
   fit_tb = TRUE,
   date_dbl = "2020-03-01",
-  uti_gamma = c(0.2, 0.5),
+  uti_gamma = c(Progression = 0.2, Death = 0.5),
   scenario = "scenario",
   mdl_surv = c("msm", "weibull"),
   ...,
