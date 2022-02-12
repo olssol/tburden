@@ -124,13 +124,12 @@ tb_regression_single <- function(tb_surv, fml_tb = NULL,
     }
 
     ## regression
-    fit_reg <- lmer(as.formula(fml), data = tb_surv)
-
-    ## coefficients
     if (tb_reg_mixed) {
+        fit_reg <- lmer(as.formula(fml), data = tb_surv)
         fit_rst <- coefficients(fit_reg)$SUBJID
     } else {
-        fit_rst <- NULL
+        fit_reg <- lm(as.formula(fml), data = tb_surv)
+        fit_rst <- coefficients(fit_reg)
     }
 
     ## return
@@ -199,34 +198,46 @@ tb_regression <- function(dat_tb, imp_surv,
 #' @export
 #'
 tb_predict <- function(id, tb_reg_fit, by_days = 7, ...) {
-    pow_conv <- tb_reg_fit$tb_reg_pow_conv
-    fit_rst  <- tb_reg_fit$fit_rst[id, ]
-    des_mat  <- tb_reg_fit$des_mat[id, ]
-    id_time  <- tb_reg_fit$id_time %>%
+    pow_conv  <- tb_reg_fit$tb_reg_pow_conv
+    reg_mixed <- tb_reg_fit$tb_reg_mixed
+    des_mat   <- tb_reg_fit$des_mat[id, ]
+    id_time   <- tb_reg_fit$id_time %>%
         filter(SUBJID == id)
-    id_time  <- id_time$IT_Time[1]
+    id_time   <- id_time$IT_Time[1]
 
-    pred_t  <- seq(0, id_time, by = by_days)
+    ## coefficients
+    fit_rst <- tb_reg_fit$fit_rst
+    if (reg_mixed) {
+        fit_rst  <- fit_rst[id, ]
+    }
 
+    ## time points
+    pred_t <- seq(0, id_time, by = by_days)
     if (tb_reg_fit$scale_time_by_surv) {
         pred_t_scale <- pred_t / id_time
     } else {
         pred_t_scale <- pred_t
     }
 
-    poly_t  <- poly(pred_t_scale,
-                    tb_reg_fit$tb_reg_poly_order,
-                    coefs = tb_reg_fit$tb_reg_poly_coefs,
-                    raw   = tb_reg_fit$tb_reg_poly_raw)
+    if (tb_reg_fit$tb_reg_poly_raw) {
+        poly_t  <- poly(pred_t_scale,
+                        tb_reg_fit$tb_reg_poly_order,
+                        raw = TRUE)
+    } else {
+        poly_t  <- poly(pred_t_scale,
+                        tb_reg_fit$tb_reg_poly_order,
+                        coefs = tb_reg_fit$tb_reg_poly_coefs)
+    }
 
+    ## predicted y
+    pred_y <- sum(des_mat * fit_rst[1 : length(des_mat)])
     par_t   <- fit_rst[- (1 : length(des_mat))]
-    pred_y  <- sum(des_mat * fit_rst[1 : length(des_mat)])
     pred_y  <- pred_y + apply(poly_t, 1, function(x) sum(x * par_t))
-
     pred_y  <- pred_y ^ (1 / pow_conv)
-    pred_y  <- pred_y / pred_y[1] - 1
+    pchg    <- pred_y / pred_y[1] - 1
 
     ## return
     list(time_tb = pred_t,
-         tb      = pred_y)
+         pred_y  = pred_y,
+         tb      = pchg)
 }

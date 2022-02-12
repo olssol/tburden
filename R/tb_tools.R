@@ -145,3 +145,60 @@ tb_coxph <- function(dat_surv, var_time, var_status, fml = "ARM", event = 0) {
 
     fit
 }
+
+#' Extract Parameters
+#'
+#'
+#' @export
+#'
+tb_get_para_est <- function(surv_fit, tb_fit,
+                            trt_effect_surv = NULL,
+                            trt_effect_tb   = NULL,
+                            tb_sig          = NULL) {
+
+    rst_1 <- NULL
+    if (!is.null(surv_fit)) {
+        ## surv parameter
+        par_surv <- coef(surv_fit$mdl_fit)
+        if (!is.null(trt_effect_surv))
+            par_surv["ARM"] <- trt_effect_surv
+
+        rst_1 <- data.frame(Type  = "Survival",
+                            Para  = names(par_surv),
+                            Value = par_surv)
+    }
+
+    rst_2 <- NULL
+    if (!is.null(tb_fit)) {
+        ## tumor burden parameter
+        par_tb <- NULL
+        for (i in 1:length(tb_fit)) {
+            ## average over multiple imputation
+            cur_fit <- tb_fit[[i]]$fit_reg
+
+            if ("lm" == class(cur_fit)) {
+                cur_p <- coefficients(cur_fit)
+            } else {
+                cur_p <- fixef(cur_fit)
+            }
+            cur_par_tb <- c(cur_p, "Sigma" = sigma(cur_fit))
+
+            if (!is.null(trt_effect_tb))
+                cur_par_tb["ARM"] <- trt_effect_tb
+
+            if (!is.null(tb_sig))
+                cur_par_tb["Sigma"] <- tb_sig
+
+            par_tb <- cbind(par_tb, cur_par_tb)
+        }
+
+        par_tb <- apply(par_tb, 1, mean)
+        rst_2  <- data.frame(Type  = "TB",
+                            Para  = names(par_tb),
+                            Value = par_tb)
+    }
+
+
+    ## result
+    rbind(rst_1, rst_2)
+}
