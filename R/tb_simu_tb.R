@@ -9,7 +9,7 @@ tb_simu_tb <- function(pt_surv, mdl_fit,
                        trt_effect     = 0,
                        tb_sig         = 2,
                        rand_effect    = c("(Intercept)"     = 0,
-                                            "poly(reg_t, 2, raw = TRUE)1" = 0,
+                                          "poly(reg_t, 2, raw = TRUE)1" = 0,
                                           "poly(reg_t, 2, raw = TRUE)2" = 0),
                        miss_rate      = 0.5,
                        ...,
@@ -38,7 +38,7 @@ tb_simu_tb <- function(pt_surv, mdl_fit,
         cur_d       <- cur_d[rep(1, length(reg_t)), ]
         cur_d$DAY   <- days
         cur_d$reg_t <- reg_t
-        rst  <- rbind(rst, cur_d)
+        rst         <- rbind(rst, cur_d)
     }
 
     ## turmor burden
@@ -56,10 +56,13 @@ tb_simu_tb <- function(pt_surv, mdl_fit,
                          cur_coef[coef_l] <- x[1] * rand_effect +
                              cur_coef[coef_l]
                          cur_mean <- sum(x[-1] * cur_coef)
-                         rnorm(1, cur_mean, sd = tb_sig)
+                         cur_y    <- rnorm(1, cur_mean, sd = tb_sig)
+
+                         c(cur_mean, cur_y)
                      })
 
-    rst$TB <- simu_tb
+    rst$TB_Mean <- simu_tb[1, ]
+    rst$TB      <- simu_tb[2, ]
 
     rst <- rst %>%
         arrange(SUBJID, DAY)
@@ -67,15 +70,18 @@ tb_simu_tb <- function(pt_surv, mdl_fit,
     ## percent change
     cur_id   <- -1
     all_pchg <- NULL
+    all_base <- NULL
     for (i in seq_len(nrow(rst))) {
         if (rst[i, "SUBJID"] != cur_id) {
             cur_base <- rst[i, "TB"]
             cur_id   <- rst[i, "SUBJID"]
         }
 
+        all_base <- c(all_base, cur_base)
         all_pchg <- c(all_pchg,
                       rst[i, "TB"] / cur_base - 1)
     }
+    rst$BASE <- all_base
     rst$PCHG <- all_pchg
 
     ## missingness
