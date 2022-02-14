@@ -101,7 +101,11 @@ tb_simu_surv_wb <- function(pt_cov, mdl_fit,
 
     ## censoring
     lambda  <- tkt_lambda(annual_dropout, tp  = 365.25)
-    all_ct  <- rexp(n_sub, lambda)
+    if (0 == lambda) {
+        all_ct <- rep(Inf, n_sub)
+    } else {
+        all_ct  <- rexp(n_sub, lambda)
+    }
 
     ## observed
     date_dbl   <- max(pt_cov$RANDT) + min_fu_days
