@@ -6,14 +6,14 @@
 #' @export
 #'
 plot_km <- function(dat_surv, var_time, var_status, lab_y = "PFS",
-                    by_var = c("ARM"), event = 0,
+                    by_var = c("ARM"), ind_event = 0,
                     pval  = FALSE, lim_x = 0, lim_y = c(0, 1)) {
 
     dat_surv$time   <- dat_surv[[var_time]]
     dat_surv$status <- dat_surv[[var_status]]
 
     dat_surv <- dat_surv %>%
-        mutate(status = if_else(event == status, 1, 0))
+        mutate(status = if_else(ind_event == status, 1, 0))
 
     s_fml <- paste("Surv(time, status) ~",
                    paste(by_var, collapse = "+"))
@@ -26,14 +26,15 @@ plot_km <- function(dat_surv, var_time, var_status, lab_y = "PFS",
                       data = dat_surv,
                       pval = pval)$plot
     rst <- rst +
-        labs(y = lab_y) +
-        ylim(lim_y[1], lim_y[2])
+        labs(y = lab_y)
+
+    ##+ ylim(lim_y[1], lim_y[2])
 
     if (lim_x > 0) {
         rst <- rst + coord_cartesian(xlim = c(0, lim_x))
     }
 
-    rst
+    list(fit = fit, plot = rst)
 }
 
 #' Draw bootstrap samples
@@ -123,28 +124,6 @@ tb_extract_aic <- function(rst_orig) {
     rst
 }
 
-
-#'  Cox Regression
-#'
-#'
-#'
-#'
-#' @export
-#'
-tb_coxph <- function(dat_surv, var_time, var_status, fml = "ARM", event = 0) {
-
-    dat_surv$time   <- dat_surv[[var_time]]
-    dat_surv$status <- dat_surv[[var_status]]
-
-    dat_surv <- dat_surv %>%
-        mutate(status = if_else(event == status, 1, 0))
-
-    s_fml <- paste("Surv(time, status) ~", fml)
-    s_fml <- as.formula(s_fml)
-    fit   <- coxph(s_fml, data = dat_surv)
-
-    fit
-}
 
 #' Extract Parameters
 #'

@@ -16,6 +16,7 @@ tb_get_all(
   uti_gamma = c(Progression = 0.2, Death = 0.5),
   scenario = "scenario",
   mdl_surv = c("msm", "weibull"),
+  keep_est_par = FALSE,
   ...,
   seed = NULL
 )

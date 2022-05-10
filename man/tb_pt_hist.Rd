@@ -4,15 +4,7 @@
 \alias{tb_pt_hist}
 \title{Generate history and AUC of a patient}
 \usage{
-tb_pt_hist(
-  time_tb,
-  tb,
-  time_event,
-  t_ana,
-  uti_gamma = c(0.2, 0.5),
-  locf = FALSE,
-  ...
-)
+tb_pt_hist(time_tb, tb, time_event, t_ana, uti_gamma = c(0.2, 0.5), ...)
 }
 \description{
 Generate history and AUC of a patient

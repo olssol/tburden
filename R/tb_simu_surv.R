@@ -90,13 +90,16 @@ tb_simu_surv_wb <- function(pt_cov, mdl_fit,
     rand_ef <- rnorm(n_sub)
 
     ## survival time
-    all_st <- NULL
+    all_st_mean <- NULL
+    all_st      <- NULL
     for (i in seq_len(n_sub)) {
         cur_d  <- pt_cov[i, ]
-        cur_t  <- tb_weibull_imp(cur_d, mdl_fit, 1,
+        cur_t  <- tb_weibull_imp(cur_d, mdl_fit,
+                                 imp_m    = 1,
                                  t_censor = 0,
                                  offset   = rand_ef[i] * rand_effect)
-        all_st <- c(all_st, cur_t)
+        all_st      <- c(all_st, cur_t$cur_imp)
+        all_st_mean <- c(all_st_mean, cur_t$pred_mean)
     }
 
     ## censoring
@@ -104,7 +107,7 @@ tb_simu_surv_wb <- function(pt_cov, mdl_fit,
     if (0 == lambda) {
         all_ct <- rep(Inf, n_sub)
     } else {
-        all_ct  <- rexp(n_sub, lambda)
+        all_ct <- rexp(n_sub, lambda)
     }
 
     ## observed
@@ -121,10 +124,11 @@ tb_simu_surv_wb <- function(pt_cov, mdl_fit,
                         })
 
     ## append survival results
-    pt_cov$T_Event  <- all_st
-    pt_cov$T_Censor <- all_ct
-    pt_cov$PFS_DAYS <- all_obs[1, ]
-    pt_cov$PFS_CNSR <- all_obs[2, ]
+    pt_cov$T_Event   <- all_st
+    pt_cov$T_Censor  <- all_ct
+    pt_cov$T_Premean <- all_st_mean
+    pt_cov$PFS_DAYS  <- all_obs[1, ]
+    pt_cov$PFS_CNSR  <- all_obs[2, ]
 
     ## random effect
     pt_cov$rand_ef  <- rand_ef

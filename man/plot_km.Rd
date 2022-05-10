@@ -10,7 +10,7 @@ plot_km(
   var_status,
   lab_y = "PFS",
   by_var = c("ARM"),
-  event = 0,
+  ind_event = 0,
   pval = FALSE,
   lim_x = 0,
   lim_y = c(0, 1)

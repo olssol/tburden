@@ -25,8 +25,6 @@ double crtTest(double test) {
 
 // Get utility value by survival function
 //
-// Get utility value by survival function
-//
 // @export
 //
 // [[Rcpp::export]]
@@ -43,5 +41,53 @@ double c_uti_surv(NumericMatrix surv_f) {
 
 
   // return
+  return(rst);
+}
+
+
+// Get Pseudo Overall Response
+//
+// @export
+//
+// [[Rcpp::export]]
+NumericVector c_pseudo_response(NumericVector pchg, double thresh_cr, double thresh_pd) {
+  int    i, n = pchg.length();
+  double cp, cm, tmp;
+
+  // t_or, pchg_or, t_pd, pchg_or, t_min, pchg_min
+  NumericVector rst(6, 999.0);
+
+  for (i = 0; i < n; i++) {
+
+    cp = pchg[i];
+    cm = rst[5];
+
+    //Response
+    if (cp < thresh_cr & 999 == rst[0]) {
+      rst[0] = i + 1;
+      rst[1] = cp;
+    }
+
+    //Progression
+    tmp = cm + (1 + cm) * thresh_pd;
+    if (cp > tmp & 999 == rst[2]) {
+      rst[2] = i + 1;
+      rst[3] = cp;
+    }
+
+    //Minimum
+    if (cp < cm) {
+      rst[4] = i + 1;
+      rst[5] = cp;
+    }
+  }
+
+  //Return
+  for (i = 0; i < rst.length(); i++) {
+    if (999 == rst[i]) {
+      rst[i] = NA_REAL;
+    }
+  }
+
   return(rst);
 }

@@ -15,6 +15,7 @@ tb_surv_imp <- function(fit_rst, imp_m, ..., seed = NULL) {
                   "PFS_DAYS", "OS_DAYS",
                   "PFS_CNSR", "OS_CNSR",
                   "time",     "status",
+                  "T_Event",  "T_Premean",
                   all.vars(fit_rst$fml_surv)[-(1:2)])
 
     d_subs <- fit_rst$dat_imp_surv %>%

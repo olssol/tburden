@@ -142,3 +142,27 @@ tb_km_surv <- function(dta_surv, formula = "Surv(time, event) ~ arm") {
          surv_test = surv_test,
          pval      = pval)
 }
+
+#'  Cox Regression
+#'
+#'
+#'
+#'
+#' @export
+#'
+tb_surv_fit <- function(dat_surv, var_time, var_status,
+                        fsurv = coxph, fml = "ARM",
+                        event = 0) {
+
+    dat_surv$time   <- dat_surv[[var_time]]
+    dat_surv$status <- dat_surv[[var_status]]
+
+    dat_surv <- dat_surv %>%
+        mutate(status = if_else(event == status, 1, 0))
+
+    s_fml <- paste("Surv(time, status) ~", fml)
+    s_fml <- as.formula(s_fml)
+    fit   <- fsurv(s_fml, data = dat_surv)
+
+    fit
+}

@@ -47,7 +47,8 @@ tb_get_data <- function(raw_dat_rs, raw_dat_te,
                DAY  = if_else(1 == AVISITN, 0, AVISITN)) %>%
         left_join(dat_id, by = "SUBJID") %>%
         filter(DAY <= cut_date_fu - RANDT + 1) %>%
-        filter(RANDT <= cut_date_enroll)
+        filter(RANDT <= cut_date_enroll) %>%
+        filter(!is.na(BASE))
 
     ## survival
     dat_os <- raw_dat_te %>%
@@ -83,7 +84,7 @@ tb_get_data <- function(raw_dat_rs, raw_dat_te,
                   " before calling this function."))
 
     ## permuate data if necessary
-    rst <- tb_permute_data(dat_tb, dat_surv, ...)
+    rst <- tb_data_permute(dat_tb, dat_surv, ...)
 
     ## add date_fu
     rst$cut_date_fu <- cut_date_fu
@@ -98,7 +99,7 @@ tb_get_data <- function(raw_dat_rs, raw_dat_te,
 #'
 #' @export
 #'
-tb_permute_data <- function(dat_tb, dat_surv, permute = FALSE, seed = NULL) {
+tb_data_permute <- function(dat_tb, dat_surv, permute = FALSE, seed = NULL) {
 
     if (!is.null(seed))
         old_seed <- set.seed(seed)

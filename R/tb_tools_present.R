@@ -38,7 +38,7 @@ tb_plt_km <- function(dat_surv, type = c("PFS", "OS"), ...) {
     var_status <- paste(type, "_", "CNSR", sep = "")
     var_time   <- paste(type, "_", "DAYS", sep = "")
 
-    plot_km(dat_surv, var_time, var_status, lab_y = type, ..., )
+    plot_km(dat_surv, var_time, var_status, lab_y = type, ...)$plot
 }
 
 
@@ -67,7 +67,7 @@ tb_plt_km_imp <- function(imp_surv, dat_surv, inx_imp = NULL,
         dat_surv$time <- dat_surv$IT_OS
     }
 
-    plot_km(dat_surv, "time", "status", lab_y = type, ...)
+    plot_km(dat_surv, "time", "status", lab_y = type, ...)$plot
 }
 
 

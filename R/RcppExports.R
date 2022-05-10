@@ -9,3 +9,7 @@ c_uti_surv <- function(surv_f) {
     .Call(`_tburden_c_uti_surv`, surv_f)
 }
 
+c_pseudo_response <- function(pchg, thresh_cr, thresh_pd) {
+    .Call(`_tburden_c_pseudo_response`, pchg, thresh_cr, thresh_pd)
+}
+

@@ -29,7 +29,6 @@ tb_gamma_simu_surv <- function(n = 200, hd_death = c(1, 1.5), ...) {
     }
 
     rst
-
 }
 
 #' Evaluate treatment effect by AUC_SURV

@@ -47,12 +47,19 @@ tb_weibull_fit <- function(dat_surv,
 #'
 tb_weibull_imp_single <- function(d, fit_rst, imp_m, ...) {
 
-    mdl_fit <- fit_rst$mdl_fit
+    mdl_fit   <- fit_rst$mdl_fit
+    type_surv <- fit_rst$type_surv
+
+    if ("PFS" == type_surv) {
+        code_event <- 1
+    } else {
+        code_event <- 2
+    }
 
     ## event time observed
     if (1 == d$status) {
         ## 3: pfs
-        cur_rst <- cbind(seq_len(imp_m), d$time, 2)
+        cur_rst <- cbind(seq_len(imp_m), d$time, code_event)
     } else {
         ## 3: pfs
         if (fit_rst$by_arm) {
@@ -61,8 +68,8 @@ tb_weibull_imp_single <- function(d, fit_rst, imp_m, ...) {
             mf <- mdl_fit
         }
 
-        cur_imp <- tb_weibull_imp(d, mf, imp_m, d$time)
-        cur_rst <- cbind(seq_len(imp_m), cur_imp, 2)
+        cur_imp <- tb_weibull_imp(d, mf, imp_m, t_censor = d$time)
+        cur_rst <- cbind(seq_len(imp_m), cur_imp$cur_imp, code_event)
     }
 
     colnames(cur_rst) <- c("Imp", "IT_Time", "IT_Event")
@@ -72,8 +79,13 @@ tb_weibull_imp_single <- function(d, fit_rst, imp_m, ...) {
     rst <- data.frame(cur_rst)
 
     ## placeholder for plots etc
-    rst$IT_PFS <- NA
-    rst$IT_OS  <- rst$IT_Time
+    if (1 == code_event) {
+        rst$IT_PFS <- rst$IT_Time
+        rst$IT_OS  <- NA
+    } else {
+        rst$IT_PFS <- NA
+        rst$IT_OS  <- rst$IT_Time
+    }
 
     rst
 }
@@ -84,6 +96,7 @@ tb_weibull_imp_single <- function(d, fit_rst, imp_m, ...) {
 #' @export
 #'
 tb_weibull_imp <- function(d, fit_rst, imp_m, t_censor = 0, offset = 0) {
+
     pred_mean <- predict(fit_rst, newdata = d) * exp(offset)
     cur_imp   <- NULL
     while (length(cur_imp) < imp_m) {
@@ -97,4 +110,7 @@ tb_weibull_imp <- function(d, fit_rst, imp_m, t_censor = 0, offset = 0) {
     }
 
     cur_imp <- cur_imp[1 : imp_m]
+
+    list(cur_imp   = cur_imp,
+         pred_mean = pred_mean)
 }

@@ -32,10 +32,24 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// c_pseudo_response
+NumericVector c_pseudo_response(NumericVector pchg, double thresh_cr, double thresh_pd);
+RcppExport SEXP _tburden_c_pseudo_response(SEXP pchgSEXP, SEXP thresh_crSEXP, SEXP thresh_pdSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< NumericVector >::type pchg(pchgSEXP);
+    Rcpp::traits::input_parameter< double >::type thresh_cr(thresh_crSEXP);
+    Rcpp::traits::input_parameter< double >::type thresh_pd(thresh_pdSEXP);
+    rcpp_result_gen = Rcpp::wrap(c_pseudo_response(pchg, thresh_cr, thresh_pd));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_tburden_crtTest", (DL_FUNC) &_tburden_crtTest, 1},
     {"_tburden_c_uti_surv", (DL_FUNC) &_tburden_c_uti_surv, 1},
+    {"_tburden_c_pseudo_response", (DL_FUNC) &_tburden_c_pseudo_response, 3},
     {NULL, NULL, 0}
 };
 

@@ -30,6 +30,7 @@ tb_estimate <- function(dat_sub, dat_tb, imp_surv, reg_tb = NULL,
                           cur_uti$adj_utility,
                           cur_uti$uti_tb,
                           cur_uti$uti_event,
+                          cur_uti$uti_ana,
                           cur_uti$t_ana)
 
             cur_imp <- rbind(cur_imp, cur_rst)
@@ -40,7 +41,7 @@ tb_estimate <- function(dat_sub, dat_tb, imp_surv, reg_tb = NULL,
 
     colnames(rst) <- c("imp",     "inx",
                        "utility", "adj_utility",
-                       "uti_tb",  "uti_event",
+                       "uti_tb",  "uti_event", "uti_ana",
                        "t_ana")
     dat_sub %>%
         mutate(inx = 1:n()) %>%
@@ -68,9 +69,10 @@ tb_estimate_summary <- function(rst_estimate,
                   adj_utility  = mean(adj_utility),
                   uti_tb       = mean(uti_tb),
                   uti_event    = mean(uti_event),
+                  uti_ana      = mean(uti_ana),
                   t_ana        = mean(t_ana)) %>%
         gather(Outcome, Value, utility, adj_utility,
-               uti_tb, uti_event, t_ana)
+               uti_tb, uti_event, uti_ana, t_ana)
 
     rst_arm <- rst_value %>%
         group_by(ARM, Outcome) %>%
@@ -107,16 +109,17 @@ tb_estimate_summary <- function(rst_estimate,
 #' @export
 #'
 tb_get_all <- function(dat_tb, dat_surv,
-                       inx_bs    = 0,
-                       fml_surv  = "~BASE+AGE+SEX+STRATA1+P1TERTL",
-                       fml_tb    = "~AGE+SEX+STRATA1+P1TERTL",
-                       imp_m     = 5,
-                       fit_tb    = TRUE,
-                       date_dbl  = "2020-03-01",
-                       uti_gamma = c("Progression" = 0.2,
-                                     "Death"       = 0.5),
-                       scenario  = "scenario",
-                       mdl_surv  = c("msm", "weibull"),
+                       inx_bs       = 0,
+                       fml_surv     = "~BASE+AGE+SEX+STRATA1+P1TERTL",
+                       fml_tb       = "~AGE+SEX+STRATA1+P1TERTL",
+                       imp_m        = 5,
+                       fit_tb       = TRUE,
+                       date_dbl     = "2020-03-01",
+                       uti_gamma    = c("Progression" = 0.2,
+                                        "Death"       = 0.5),
+                       scenario     = "scenario",
+                       mdl_surv     = c("msm", "weibull"),
+                       keep_est_par = FALSE,
                        ...,
                        seed      = NULL) {
 
@@ -164,7 +167,7 @@ tb_get_all <- function(dat_tb, dat_surv,
     imp_surv <- NULL
     tryCatch({
         ## survival: fit model
-        surv_fit  <- f_surv_fit(dat_imp_surv, fml_surv, ...)
+        surv_fit <- f_surv_fit(dat_imp_surv, fml_surv, ...)
         ## survival imputation
         imp_surv <- tb_surv_imp(surv_fit, imp_m = imp_m, ...)
     }, error = function(e) {
@@ -203,7 +206,10 @@ tb_get_all <- function(dat_tb, dat_surv,
     }
 
     ## estimate parameters
-    est_par <- tb_get_para_est(surv_fit, reg_tb)
+    est_par <- NULL
+    if (keep_est_par) {
+        est_par <- tb_get_para_est(surv_fit, reg_tb)
+    }
 
     ## reset random seed
     if (!is.null(seed)) {

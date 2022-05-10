@@ -9,8 +9,7 @@
 #'
 #' @export
 #'
-tb_shiny <- function() {
-
+tb_shiny <- function(appname = "shiny") {
     req.pkgs        <- c("shiny", "shinythemes", "DT",
                          "knitr", "rmarkdown", "pander");
     chk.uninstalled <- sapply(req.pkgs,
@@ -33,7 +32,7 @@ tb_shiny <- function() {
         stop(msg, call. = FALSE);
     }
 
-    appDir <- system.file("shiny", package = "tburden")
+    appDir <- system.file(appname, package = "tburden")
     if (appDir == "") {
         stop("Could not find Shiny directory. Try re-installing `idem`.",
              call. = FALSE)

@@ -1,3 +1,12 @@
+## -----------------------------------------------------------------------
+##
+##               FUNCTIONS RELATED TO TUMOR BURDEN
+##                                 REGRESSION
+##                                 PREDICTION
+##                                 BEST RESPONSE
+##
+## -----------------------------------------------------------------------
+
 #' Combine survival and tumor burden data
 #'
 #' Prepare data set for longitudinal tumor burden regression
@@ -240,4 +249,201 @@ tb_predict <- function(id, tb_reg_fit, by_days = 7, ...) {
     list(time_tb = pred_t,
          pred_y  = pred_y,
          tb      = pchg)
+}
+
+#' Define Pseudo Overall Response
+#'
+#' @param thresh_cr Threshold for CR/PR: >=30% shrinkage from baseline
+#' @param thresh_pd Threshold for PD: >= 20% increase than the minimum
+#'
+#' @export
+#'
+tb_pseu_or <- function(pchg,
+                       vec_t     = NULL,
+                       thresh_cr = -0.3,
+                       thresh_pd = 0.2) {
+
+    f_vt <- function(r, vi) {
+        if (!is.na(r)) {
+            rst <- vi[r]
+        } else {
+            rst <- NA
+        }
+
+        rst
+    }
+
+    f_or <- function(cur_pchg) {
+        inx <- which(!is.na(cur_pchg))
+        if (0 == length(inx))
+            return(rep(NA, 8))
+
+        rst <- c_pseudo_response(cur_pchg[inx], thresh_cr, thresh_pd)
+
+        ## translate time
+        vi     <- vec_t[inx]
+        rst[1] <- f_vt(rst[1], vi)
+        rst[3] <- f_vt(rst[3], vi)
+        rst[5] <- f_vt(rst[5], vi)
+
+        rst
+    }
+
+    pchg <- rbind(pchg)
+    if (is.null(vec_t)) {
+        vec_t <- seq_len(ncol(pchg)) - 1
+    }
+
+    ## check response
+    rst           <- apply(pchg, 1, f_or)
+    rst           <- t(rst)
+    colnames(rst) <- c("T_OR",  "PCHG_OR",
+                       "T_PD",  "PCHG_PD",
+                       "T_Min", "PCHG_Min")
+
+    rownames(rst) <- NULL
+    rst <- data.frame(rst) %>%
+        mutate(Response = if_else(is.na(T_OR), "No", "Yes"))
+    rst
+}
+
+
+#' Get improved tumor burden
+#'
+#' @param perc_improve Percentage improvement
+#'
+#' @export
+#'
+tb_tb_impr <- function(vec, perc_improve = 0.1,
+                       type = c("ratio", "absolute")) {
+
+    type <- match.arg(type)
+
+    if ("ratio" == type) {
+        rst <- vec - abs(vec) * perc_improve
+    } else {
+        rst <- vec - perc_improve
+    }
+
+    inx <- which(rst < -1)
+    if (length(inx) > 0)
+        rst[inx] <- -1
+
+    rst
+}
+
+
+#' Tumor burden response
+#'
+#' Best tumor burden response
+#'
+#'
+#' @export
+#'
+tb_tb_resp <- function(dat_tb,
+                        var_day  = "DAY",
+                        var_tb   = "PCHG",
+                        var_id   = "SUBJID",
+                        ...) {
+    f_tb <- function(tbl, id) {
+        tb <- tbl %>%
+            arrange(!!as.name(var_day))
+
+        rst <- tb_pseu_or(tb[[var_tb]],
+                          vec_t = tb[[var_day]],
+                          ...)
+
+        cbind(id, rst)
+    }
+
+    dat_tb %>%
+        group_by(!! as.name(var_id)) %>%
+        group_map(.f = ~ f_tb(.x, .y), .keep = TRUE) %>%
+        bind_rows()
+}
+
+#' Median survival by best TB
+#'
+#' @param cut_tb Best response measured by PCHG
+#'
+#'  @export
+#'
+tb_tb_surv <- function(dta_tb, dta_surv, tb_cut = -0.3,
+                       var_tb      = "PCHG",
+                       var_id      = "SUBJID",
+                       var_time    = "PFS_DAYS",
+                       var_status  = "PFS_CNSR",
+                       surv_quants = c(0.5, 0.7),
+                       ...) {
+
+    f_m <- function(d, bt) {
+        fit <- tb_surv_fit(d, var_time, var_status,
+                           fsurv = survfit, ...)
+        rst            <- tkt_survfit_median(fit, surv_quants)
+        rst$TB_Cut     <- tb_cut
+        rst$BetterThan <- bt
+        rst
+    }
+
+    dta <- dta_surv %>%
+        left_join(dta_tb %>%
+                  group_by(!!as.name(var_id)) %>%
+                  summarize(PCHG_Min = min(!!as.name(var_tb),
+                                           na.rm = TRUE)),
+                  by = var_id)
+
+    rst <- NULL
+    inx <- which(dta$PCHG_Min <= tb_cut)
+    if (length(inx) > 0) {
+        rst <- rbind(rst, f_m(dta[inx, ], "Yes"))
+    }
+
+    if (length(inx) < nrow(dta)) {
+        rst <- rbind(rst, f_m(dta[-inx, ], "No"))
+    }
+
+    rst
+}
+
+
+#' Observed TB mean, sd and missing rate
+#'
+#'
+#'  @export
+#'
+tb_tb_obs <- function(dta_tb, dta_surv,
+                      var_tb   = "PCHG",
+                      var_day  = "DAY",
+                      var_id   = "SUBJID",
+                      var_time = "PFS_DAYS") {
+
+    dta_surv$PFS <- dta_surv[[var_time]]
+    dta_surv$ID  <- dta_surv[[var_id]]
+    dta_tb$DAY   <- dta_tb[[var_day]]
+    dta_tb$ID    <- dta_tb[[var_id]]
+
+    rst <- dta_tb %>%
+        left_join(dta_surv %>% select(ID, PFS), by = "ID") %>%
+        filter(PFS >= DAY) %>%
+        group_by(ARM, DAY) %>%
+        summarize(N = n(),
+                  PCHG_Mean = mean(PCHG, na.rm = TRUE),
+                  PCHG_SD   = sd(PCHG, na.rm = TRUE))
+
+    d_surv <- NULL
+    vec_t  <- unique(rst$DAY)
+    for (i in vec_t) {
+        cur_d <- dta_surv %>%
+            filter(PFS >= i) %>%
+            group_by(ARM) %>%
+            summarize(N_Surv = n())
+        cur_d$DAY <- i
+
+        d_surv <- rbind(d_surv, cur_d)
+    }
+
+    rst %>%
+        left_join(d_surv,
+                  by = c("DAY", "ARM")) %>%
+        mutate(Miss_Rate = 1 - N / N_Surv)
 }

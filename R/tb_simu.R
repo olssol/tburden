@@ -1,4 +1,9 @@
-## Simulation
+## --------------------------------------------------------------------
+##
+##             Simulation
+##
+##
+## --------------------------------------------------------------------
 
 #' Simulate studies
 #'
@@ -68,7 +73,7 @@ tb_simu_present <- function(simu_pt) {
     my_theme <- theme_bw() +
         theme(strip.background = element_blank())
 
-    plt_surv <- plot_km(simu_pt, "PFS_DAYS", "PFS_CNSR", event = 1)
+    plt_surv <- plot_km(simu_pt, "PFS_DAYS", "PFS_CNSR", event = 1)$plot
     plt_tb   <- ggplot(data = simu_pt %>%
                            filter(TB_mis == 0),
                        aes(x = DAY, y = PCHG)) +

@@ -79,16 +79,21 @@ tab_present <- function() {
                       column(6,
                              wellPanel(
                                  h4("History and AUC"),
+                                 radioButtons("inUtiMtd",
+                                              "Utility Option",
+                                              choices = c("composite",
+                                                          "extrap",
+                                                          "locf")),
                                  plotOutput("pltPt", height = "500px"),
                                  sliderInput("inXlim",
                                              label = "",
                                              value = 0,
                                              min   = 0,
                                              max   = 5000,
-                                             step  = 100),
-                                 checkboxInput("inRegTb",
-                                               "By observed TB",
-                                               value = FALSE)
+                                             step  = 100)
+                                 ## ,checkboxInput("inRegTb",
+                                 ##               "By observed TB",
+                                 ##               value = FALSE)
                              ))),
              fluidRow(
                  wellPanel(h4("Utility Details"),
@@ -325,11 +330,12 @@ get_cur_hist <- reactive({
         }
     }
 
-    if (input$inRegTb) {
-        reg_tb <- NULL
-    } else {
-        reg_tb <- dat$reg_tb
-    }
+    ## if (input$inRegTb) {
+    ##     reg_tb <- NULL
+    ## } else {
+    ##     reg_tb <- dat$reg_tb
+    ## }
+    reg_tb <- dat$reg_tb
 
     d_pt <- tb_get_pt(id,
                       imp_surv  = dat$imp_surv,
@@ -338,7 +344,8 @@ get_cur_hist <- reactive({
                       t_ana     = NULL,
                       date_dbl  = dat$date_dbl,
                       uti_gamma = dat$uti_gamma,
-                      reg_tb    = reg_tb)
+                      reg_tb    = reg_tb,
+                      method    = input$inUtiMtd)
 
     d_pt
 })
