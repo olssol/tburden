@@ -170,6 +170,7 @@ tb_regression <- function(dat_tb, imp_surv,
                           scale_time_by_surv = TRUE,
                           by_arm             = TRUE,
                           ...) {
+
     imp_m <- max(imp_surv$Imp)
     arms  <- unique(dat_tb$ARM)
 
@@ -184,11 +185,11 @@ tb_regression <- function(dat_tb, imp_surv,
             for (a in arms) {
                 cur_arm <- cur_dta %>%
                     filter(ARM == a)
-                cur_rst[[a]] <- tb_regression_single(cur_arm, ...)
+                cur_rst[[a]]  <- tb_regression_single(cur_arm, ...)
                 cur_rst[[a]]$scale_time_by_surv <- scale_time_by_surv
             }
         } else {
-            cur_rst <- tb_regression_single(cur_dta, ...)
+            cur_rst                    <- tb_regression_single(cur_dta, ...)
             cur_rst$scale_time_by_surv <- scale_time_by_surv
         }
 
@@ -320,7 +321,7 @@ tb_tb_impr <- function(vec, perc_improve = 0.1,
     type <- match.arg(type)
 
     if ("ratio" == type) {
-        rst <- vec - abs(vec) * perc_improve
+        rst <- vec * (1 - perc_improve) - perc_improve
     } else {
         rst <- vec - perc_improve
     }

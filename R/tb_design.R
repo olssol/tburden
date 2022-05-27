@@ -192,7 +192,7 @@ tb_des_simu_tb <- function(vec_t, par_tb,
                            rand_cut = 0, ...) {
 
     f_tb <- function(w) {
-        rst <- w * par_tb_rand[1]
+        rst <- w   * par_tb_rand[1]
         rst <- rst + tb_des_tpoly(vec_t, par_tb)
         rst <- rst + rnorm(nt, 0, par_tb_sig)
 

@@ -142,8 +142,12 @@ tb_pt_insert <- function(tb_mat, ins_t, ins_ind, uti = 0.2,
         if (inx == ntb) {
             ins_tb <- if_else(is_event, uti, tb[ntb])
         } else {
-            tb[(inx + 1):length(tb)] <- uti
-            ins_tb <- uti
+            if (is_event) {
+                tb[(inx + 1):length(tb)] <- uti
+                ins_tb <- uti
+            } else {
+                ins_tb <- f_linear(inx)
+            }
         }
 
         f_append(tb_time, tb_ind, tb, ins_t, ins_tb, ins_ind, inx)
