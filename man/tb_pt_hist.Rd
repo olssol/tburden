@@ -2,10 +2,10 @@
 % Please edit documentation in R/tb_patient.R
 \name{tb_pt_hist}
 \alias{tb_pt_hist}
-\title{Generate history and AUC of a patient}
+\title{Generate history a patient}
 \usage{
 tb_pt_hist(time_tb, tb, time_event, t_ana, uti_gamma = c(0.2, 0.5), ...)
 }
 \description{
-Generate history and AUC of a patient
+Generate history a patient
 }

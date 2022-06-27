@@ -9,12 +9,11 @@ tb_estimate <- function(dat_sub, dat_tb, imp_surv, reg_tb = NULL,
     if (is.null(imp_surv))
         return(NULL)
 
-    imp_m <- max(imp_surv$Imp)
-    nsub  <- nrow(dat_sub)
-
-    rst   <- NULL
+    imp_m   <- max(imp_surv$Imp)
+    nsub    <- nrow(dat_sub)
+    rst     <- matrix(NA, imp_m * nsub, 8)
+    rst_mat <- list()
     for (imp in seq_len(imp_m)) {
-        cur_imp    <- NULL
         tot_tana   <- 0
         for (i in seq_len(nsub)) {
             cur_uti <- tb_get_pt(id       = dat_sub[i, "SUBJID"],
@@ -25,7 +24,8 @@ tb_estimate <- function(dat_sub, dat_tb, imp_surv, reg_tb = NULL,
                                  ...)
 
             tot_tana <- tot_tana + cur_uti$t_ana
-            cur_rst  <- c(i,
+            cur_rst  <- c(imp,
+                          i,
                           cur_uti$utility,
                           cur_uti$adj_utility,
                           cur_uti$uti_tb,
@@ -33,23 +33,41 @@ tb_estimate <- function(dat_sub, dat_tb, imp_surv, reg_tb = NULL,
                           cur_uti$uti_ana,
                           cur_uti$t_ana)
 
-            cur_imp <- rbind(cur_imp, cur_rst)
-        }
+            cur_tb_mat <- cbind(imp, i, cur_uti$tb_mat)
 
-        rst <- rbind(rst, cbind(imp, cur_imp))
+            ## append
+            rst[length(rst_mat) + 1, ]     <- cur_rst
+            rst_mat[[length(rst_mat) + 1]] <- data.frame(cur_tb_mat)
+        }
     }
 
+    ## finish
     colnames(rst) <- c("imp",     "inx",
                        "utility", "adj_utility",
                        "uti_tb",  "uti_event", "uti_ana",
                        "t_ana")
-    dat_sub %>%
+    rst <- dat_sub %>%
         mutate(inx = 1:n()) %>%
-        left_join(data.frame(rst), by = "inx")
+        left_join(data.frame(rst),
+                  by = "inx")
+
+
+    rst_mat           <- rbindlist(rst_mat)
+    colnames(rst_mat) <- c("imp", "inx", "x", "y", "z")
+    rst_mat <- dat_sub %>%
+        mutate(inx = 1:n()) %>%
+        left_join(rst_mat,
+                  by = "inx")
+
+    ## return
+    list(estimate = rst,
+         tb_mat   = rst_mat)
 }
 
 #' Summarize estimation results
 #'
+#'
+#' @return uti_ana: tumor burden at the time of analysis
 #'
 #'@export
 #'
@@ -106,6 +124,7 @@ tb_estimate_summary <- function(rst_estimate,
 #' @param mdl_surv regression method for survival. msm: multi-state model;
 #'     weibull: weibull regression for PFS
 #'
+#' @return tb_mat: tumor burden outcome for each patient
 #' @export
 #'
 tb_get_all <- function(dat_tb, dat_surv,
@@ -199,7 +218,7 @@ tb_get_all <- function(dat_tb, dat_surv,
                            ...)
 
     ## estimate summary
-    rst <- tb_estimate_summary(rst_est, ...)
+    rst <- tb_estimate_summary(rst_est$estimate, ...)
     if (!is.null(rst)) {
         rst$rst_arm    <- f_abs(rst$rst_arm)
         rst$rst_effect <- f_abs(rst$rst_effect)
@@ -231,7 +250,8 @@ tb_get_all <- function(dat_tb, dat_surv,
          estimate_par = est_par,
          estimate_sub = rst_est,
          estimate_arm = rst$rst_arm,
-         estimate     = rst$rst_effect)
+         estimate     = rst$rst_effect,
+         tb_mat       = rst_est$tb_mat)
 }
 
 #' Overall results with bootstrap results

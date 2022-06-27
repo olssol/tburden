@@ -2,12 +2,14 @@
 #'
 #' @export
 #'
-tb_plt_tb <- function(dat_tb, sel_ids = NULL, by_var = c("ARM")) {
+tb_plt_tb <- function(dat_tb, sel_ids = NULL, by_var = c("ARM"), ...,
+                      col = "brown") {
 
-    s_fml <- paste("~", paste(by_var, collapse = "+"))
+    dat_tb <- tkt_subset(dat_tb, ...)
+    s_fml  <- paste("~", paste(by_var, collapse = "+"))
 
     rst <- ggplot(data = dat_tb, aes(x = DAY, y = PCHG)) +
-        geom_line(aes(group = SUBJID), col = "brown") +
+        geom_line(aes(group = SUBJID), col = col) +
         facet_wrap(as.formula(s_fml)) +
         theme_bw() +
         theme(legend.position = "none")

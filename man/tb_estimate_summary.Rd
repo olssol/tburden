@@ -6,6 +6,9 @@
 \usage{
 tb_estimate_summary(rst_estimate, arm_control = "Chemotherapy", ...)
 }
+\value{
+uti_ana: tumor burden at the time of analysis
+}
 \description{
 Summarize estimation results
 }

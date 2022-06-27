@@ -86,14 +86,18 @@ tb_pt_insert <- function(tb_mat, ins_t, ins_ind, uti = 0.2,
     }
 
     f_extrap <- function() {
-
         cur_d <- abs(tb_time - ins_t)
-        cur_i <- which(cur_d == min(cur_d))
+
+        ## there may be two time points with equal distance to
+        ## ins_t, always keep the first one
+        cur_i <- which(cur_d == min(cur_d))[1]
 
         if (is_event & cur_d[cur_i] < event_window) {
             tb_ind[cur_i] <- ins_ind
             tb_1          <- tb_tb_impr(tb[cur_i - 1], -uti)
             tb[cur_i]     <- max(tb_1, tb[cur_i])
+
+            rst <- f_append(tb_time, tb_ind, tb)
         } else {
             if (inx == ntb) {
                 if (is_event) {
@@ -106,26 +110,21 @@ tb_pt_insert <- function(tb_mat, ins_t, ins_ind, uti = 0.2,
             }
 
             if (1 == length(ins_tb)) {
-                tb_time <- append(tb_time, ins_t,   after = inx)
-                tb_ind  <- append(tb_ind,  ins_ind, after = inx)
-                tb      <- append(tb,      ins_tb,  after = inx)
+                ins <- cbind(ins_t, ins_tb, ins_ind)
             } else {
-                tb_time <- append(tb_time, c(ins_tb[1], ins_t),   after = inx)
-                tb_ind  <- append(tb_ind,  c(0,         ins_ind), after = inx)
-                tb      <- append(tb,      c(-1,        -1),      after = inx)
+                ins <- cbind(c(ins_tb[1], ins_t),
+                             c(-1,        -1),
+                             c(0,         ins_ind))
             }
+
+            rst <- f_append(tb_time, tb_ind, tb,
+                            ins_t   = ins[, 1],
+                            ins_tb  = ins[, 2],
+                            ins_ind = ins[, 3],
+                            inx)
         }
 
-        ## return
-        cbind(x = tb_time, y = tb, z = tb_ind)
-    }
-
-    f_append <- function(tb_time, tb_ind, tb, ins_t, ins_tb, ins_ind, inx) {
-        ## return
-        cbind(x = append(tb_time, ins_t,   after = inx),
-              y = append(tb,      ins_tb,  after = inx),
-              z = append(tb_ind,  ins_ind, after = inx))
-
+        rst
     }
 
     f_locf <- function() {
@@ -153,6 +152,28 @@ tb_pt_insert <- function(tb_mat, ins_t, ins_ind, uti = 0.2,
         f_append(tb_time, tb_ind, tb, ins_t, ins_tb, ins_ind, inx)
     }
 
+
+    f_append <- function(tb_time, tb_ind, tb,
+                         ins_t = NULL, ins_tb = NULL, ins_ind = NULL,
+                         inx = NULL) {
+        if (!is.null(inx)) {
+            ins <- cbind(ins_t, ins_tb, ins_ind)
+            mat <- cbind(x = append(tb_time, ins_t,   after = inx),
+                         y = append(tb,      ins_tb,  after = inx),
+                         z = append(tb_ind,  ins_ind, after = inx))
+        } else {
+            ## when only modified tumor burden without adding new points
+            ## only for events
+            ins <- NULL
+            mat <- cbind(x = tb_time,
+                         y = tb,
+                         z = tb_ind)
+        }
+
+        list(mat = mat, ins = ins)
+    }
+
+
     method   <- match.arg(method)
     tb_time  <- tb_mat[, "x"]
     tb       <- tb_mat[, "y"]
@@ -169,7 +190,7 @@ tb_pt_insert <- function(tb_mat, ins_t, ins_ind, uti = 0.2,
 
 }
 
-#' Generate history and AUC of a patient
+#' Generate history a patient
 #'
 #'
 #' @export
@@ -204,16 +225,39 @@ tb_pt_hist <- function(time_tb, tb, time_event, t_ana,
             tb_mat <- tb_pt_insert(tb_mat,
                                    time_event[i],
                                    ins_ind = ind_event,
-                                   uti = uti_gamma[i], ...)
+                                   uti = uti_gamma[i], ...)$mat
         }
     }
 
-    tb_mat <- tb_pt_insert(tb_mat, t_ana, 3, ...)
+    ## tb history
+    tb_mat <- tb_pt_insert(tb_mat, t_ana, 3, ...)$mat
 
-    ## pri and post_ana
-    inx_ana <- which(t_ana == tb_mat[, "x"])
-    ntb     <- nrow(tb_mat)
+    ## auc
+    rst           <- tb_pt_hist_auc(tb_mat)
+    rst$uti_gamma <- uti_gamma
 
+    ## return
+    rst
+}
+
+#' Calculate AUC given history
+#'
+#'
+#' @export
+#'
+tb_pt_hist_auc <- function(tb_mat) {
+
+    ntb <- nrow(tb_mat)
+
+    ## analysis
+    inx_ana <- which(3 == tb_mat[, "z"])
+    t_ana   <- tb_mat[inx_ana, "x"]
+
+    ## event
+    inx_event  <- which(tb_mat[, "z"] %in% 1:2)
+    time_event <- tb_mat[inx_event, "x"]
+
+    ## before and after analysis
     pri_ana <- tb_mat[1:inx_ana, ]
     if (inx_ana < ntb) {
         pos_ana <- tb_mat[inx_ana:ntb, ]
@@ -258,16 +302,16 @@ tb_pt_hist <- function(time_tb, tb, time_event, t_ana,
                 dur_event   = dur_event,
                 utility     = rst_uti - t_ana,
                 adj_utility = (rst_uti - t_ana) / t_ana,
-                uti_tb      = uti_tb    - dur_tb,
+                uti_tb      = uti_tb - dur_tb,
                 uti_event   = uti_event - dur_event,
                 uti_ana     = uti_ana,
-                uti_gamma   = uti_gamma)
+                tb_mat      = tb_mat)
 }
 
 #' Plot a patient
 #'
 #'
-#'@export
+#' @export
 #'
 tb_plt_ind <- function(pt_his, ylim = NULL, xlim = NULL,
                        type = c("uti", "under"),

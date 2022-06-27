@@ -59,7 +59,7 @@ tb_uti_rst <- function(rst_orig, ...) {
                                uti_gamma = c(cur_g, cur_g),
                                ...)
 
-        cur_summary <- cur_est %>%
+        cur_summary <- cur_est$estimate %>%
             group_by(SUBJID, ARM) %>%
             summarise(uti_tb    = mean(uti_tb),
                       uti_event = mean(uti_event)) %>%

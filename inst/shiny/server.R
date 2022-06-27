@@ -86,7 +86,7 @@ shinyServer(function(input, output, session) {
         dat_tb <- dta$dat_tb
         id     <- get_cur_id()
 
-        tb_plt_tb(dat_tb, id, by_var = input$inByvar)
+        tb_plt_tb(dat_tb, id, by_var = input$inByvar, sub_p = input$inTbSub)
     })
 
     ## observed survival

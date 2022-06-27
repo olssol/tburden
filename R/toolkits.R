@@ -180,3 +180,25 @@ tkt_survfit_median <- function(fit, surv_quants = NULL) {
     rownames(rst) <- NULL
     rst
 }
+
+#' Get subset of data by ID
+#'
+#'
+#' @export
+#'
+tkt_subset <- function(dta, id = "SUBJID", sub_n = NULL, sub_p = 0.1) {
+
+    if (is.null(sub_p) & is.null(sub_n))
+        return(dta)
+
+    d_id <- unique(dta[[id]])
+    if (!is.null(sub_p)) {
+        sub_n <- ceiling(length(d_id) * sub_p)
+    }
+
+    d_id <- sample(d_id, sub_n)
+    rst  <- dta %>%
+        filter((!!sym(id)) %in% d_id)
+
+    rst
+}

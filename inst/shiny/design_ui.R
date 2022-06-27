@@ -122,15 +122,19 @@ tab_survival <- function() {
                                    width    = "400px")
                        ),
              wellPanel(h4("Tumor Burden by Time"),
-                       plotOutput("pltTb")),
+                       plotOutput("pltTb"),
+                       sliderInput("inTbSub", "",
+                                   value = 1,
+                                   min = 0.1, max = 1, step = 0.05)),
              wellPanel(h4("Observed Survival"),
                        fluidRow(
                            column(6,
                                   h4("Progression Free Survival"),
                                   plotOutput("pltPFS")),
                            column(6,
-                                  h4("Overall Survival"),
-                                  plotOutput("pltOS"))
+                                  h4("Overall Survival")
+                                  ## ,plotOutput("pltOS")
+                                  )
                        )),
              wellPanel(h4("Imputed Survival"),
                        fluidRow(

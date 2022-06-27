@@ -44,6 +44,9 @@ weibull: weibull regression for PFS}
 
 \item{uti_gamm}{utility gamma for progression and death}
 }
+\value{
+tb_mat: tumor burden outcome for each patient
+}
 \description{
 Overall results
 }
