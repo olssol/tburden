@@ -4,7 +4,12 @@
 \alias{tb_estimate_summary}
 \title{Summarize estimation results}
 \usage{
-tb_estimate_summary(rst_estimate, arm_control = "Chemotherapy", ...)
+tb_estimate_summary(
+  rst_estimate,
+  arm_control = "Chemotherapy",
+  trimmed_mean = NULL,
+  ...
+)
 }
 \value{
 uti_ana: tumor burden at the time of analysis

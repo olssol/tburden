@@ -72,7 +72,8 @@ tb_estimate <- function(dat_sub, dat_tb, imp_surv, reg_tb = NULL,
 #'@export
 #'
 tb_estimate_summary <- function(rst_estimate,
-                                arm_control = "Chemotherapy",
+                                arm_control  = "Chemotherapy",
+                                trimmed_mean = NULL,
                                 ...) {
 
     if (is.null(rst_estimate))
@@ -80,6 +81,15 @@ tb_estimate_summary <- function(rst_estimate,
 
     ## check control arm label
     stopifnot(arm_control %in% unique(rst_estimate$ARM))
+
+    ## trimmed mean analysis
+    if (!is.null(trimmed_mean)) {
+        rst_estimate <- rst_estimate %>%
+            group_by(ARM, imp) %>%
+            mutate(thresh_ = quantile(adj_utility,
+                                      trimmed_mean)) %>%
+            filter(adj_utility <= thresh_)
+    }
 
     rst_value <- rst_estimate %>%
         group_by(ARM, imp) %>%
